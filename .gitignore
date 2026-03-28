@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment variables — never commit real keys
+.env.local
+.env*.local
+
+# SQLite database — local data, not for version control
+*.db
+*.db-shm
+*.db-wal
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Claude Code project memory
+.claude/
+
+# OS
+.DS_Store
