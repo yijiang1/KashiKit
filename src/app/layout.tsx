@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import NavStats from "@/components/dashboard/NavStats";
 
 export const metadata: Metadata = {
-  title: "LyricLearn",
-  description: "Learn Japanese through song lyrics",
+  title: "KashiKit",
+  description: "The AI-powered toolkit for turning Japanese lyrics into language mastery.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -12,10 +13,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-gray-50">
         <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/" className="font-bold text-indigo-600 text-lg tracking-tight">
-              LyricLearn
+            <a href="/" className="flex items-center gap-2">
+              <img src="/logo.png" alt="KashiKit" className="h-11 w-auto" />
             </a>
             <nav className="flex gap-4 text-sm items-center">
+              <NavStats />
+              <span className="w-px h-5 bg-gray-200" />
               <a href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Dashboard
               </a>

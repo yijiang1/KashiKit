@@ -10,6 +10,7 @@ declare global {
             controls?: number;
             modestbranding?: number;
             rel?: number;
+            start?: number;
           };
           events?: {
             onReady?: (event: { target: YTPlayer }) => void;

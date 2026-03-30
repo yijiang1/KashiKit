@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const query = [title, artist].filter(Boolean).join(" ");
     const res = await fetch(
       `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
-      { headers: { "User-Agent": "LyricLearn/1.0" } }
+      { headers: { "User-Agent": "KashiKit/1.0" } }
     );
 
     if (!res.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
+import SentenceExamples, { Highlight, speakJapanese } from "@/components/shared/SentenceExamples";
 
 type Entry = {
   word: string;
@@ -8,6 +9,8 @@ type Entry = {
   english_meaning: string;
   part_of_speech: string;
   grammar_notes: string;
+  example_sentence: string;
+  example_sentence_english: string;
 };
 
 const POS_OPTIONS = ["noun", "verb", "adjective", "adverb", "expression", "other"];
@@ -27,6 +30,7 @@ export default function DictionaryTable() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Entry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -65,6 +69,10 @@ export default function DictionaryTable() {
     setEditForm({ ...entry });
   }
 
+  function toggleExpand(word: string) {
+    setExpanded(expanded === word ? null : word);
+  }
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -101,71 +109,132 @@ export default function DictionaryTable() {
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <tr key={entry.word} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                {editing === entry.word && editForm ? (
-                  <>
-                    <td className="px-4 py-2 font-medium text-gray-900">{entry.word}</td>
-                    <td className="px-4 py-2">
-                      <input
-                        value={editForm.furigana}
-                        onChange={(e) => setEditForm({ ...editForm, furigana: e.target.value })}
-                        className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        value={editForm.english_meaning}
-                        onChange={(e) => setEditForm({ ...editForm, english_meaning: e.target.value })}
-                        className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={editForm.part_of_speech}
-                        onChange={(e) => setEditForm({ ...editForm, part_of_speech: e.target.value })}
-                        className="px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        {POS_OPTIONS.map((pos) => (
-                          <option key={pos} value={pos}>{pos}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        value={editForm.grammar_notes}
-                        onChange={(e) => setEditForm({ ...editForm, grammar_notes: e.target.value })}
-                        className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex gap-1">
-                        <button onClick={handleSave} className="text-green-600 hover:text-green-800 text-xs font-medium">Save</button>
-                        <button onClick={() => { setEditing(null); setEditForm(null); }} className="text-gray-400 hover:text-gray-600 text-xs">Cancel</button>
+              <Fragment key={entry.word}>
+                <tr
+                  className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${expanded === entry.word ? "bg-gray-50" : ""}`}
+                  onClick={() => { if (editing !== entry.word) toggleExpand(entry.word); }}
+                >
+                  {editing === entry.word && editForm ? (
+                    <>
+                      <td className="px-4 py-2 font-medium text-gray-900">{entry.word}</td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={editForm.furigana}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditForm({ ...editForm, furigana: e.target.value })}
+                          className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={editForm.english_meaning}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditForm({ ...editForm, english_meaning: e.target.value })}
+                          className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={editForm.part_of_speech}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditForm({ ...editForm, part_of_speech: e.target.value })}
+                          className="px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          {POS_OPTIONS.map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={editForm.grammar_notes}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditForm({ ...editForm, grammar_notes: e.target.value })}
+                          className="w-full px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={handleSave} className="text-green-600 hover:text-green-800 text-xs font-medium">Save</button>
+                          <button onClick={() => { setEditing(null); setEditForm(null); }} className="text-gray-400 hover:text-gray-600 text-xs">Cancel</button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-2.5 font-medium text-gray-900 text-base">
+                        <div className="flex items-center gap-1.5">
+                          <svg className={`w-3 h-3 text-gray-400 transition-transform ${expanded === entry.word ? "rotate-90" : ""}`} fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                          {entry.word}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-indigo-500">{entry.furigana}</td>
+                      <td className="px-4 py-2.5 text-gray-700">{entry.english_meaning}</td>
+                      <td className="px-4 py-2.5">
+                        {entry.part_of_speech && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${POS_COLORS[entry.part_of_speech] ?? POS_COLORS.other}`}>
+                            {entry.part_of_speech}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-500 text-xs italic">{entry.grammar_notes}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => startEdit(entry)} className="text-indigo-500 hover:text-indigo-700 text-xs font-medium">Edit</button>
+                          <button onClick={() => handleDelete(entry.word)} className="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+                {expanded === entry.word && editing !== entry.word && (
+                  <tr key={`${entry.word}-detail`} className="bg-gray-50/50">
+                    <td colSpan={6} className="px-6 py-4">
+                      <div className="max-w-lg space-y-3">
+                        {/* Pronounce */}
+                        <button
+                          onClick={() => speakJapanese(entry.word)}
+                          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                          </svg>
+                          Pronounce
+                        </button>
+
+                        {/* AI example sentence */}
+                        {entry.example_sentence && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Example</p>
+                              <button
+                                onClick={() => speakJapanese(entry.example_sentence)}
+                                title="Pronounce"
+                                className="w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                                </svg>
+                              </button>
+                            </div>
+                            <p className="text-sm text-gray-800">
+                              <Highlight text={entry.example_sentence} word={entry.word} />
+                            </p>
+                            {entry.example_sentence_english && (
+                              <p className="text-xs text-gray-500 italic">{entry.example_sentence_english}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Song examples with YouTube clips */}
+                        <SentenceExamples word={entry.word} />
                       </div>
                     </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="px-4 py-2.5 font-medium text-gray-900 text-base">{entry.word}</td>
-                    <td className="px-4 py-2.5 text-indigo-500">{entry.furigana}</td>
-                    <td className="px-4 py-2.5 text-gray-700">{entry.english_meaning}</td>
-                    <td className="px-4 py-2.5">
-                      {entry.part_of_speech && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${POS_COLORS[entry.part_of_speech] ?? POS_COLORS.other}`}>
-                          {entry.part_of_speech}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs italic">{entry.grammar_notes}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 hover:opacity-100" style={{ opacity: 1 }}>
-                        <button onClick={() => startEdit(entry)} className="text-indigo-500 hover:text-indigo-700 text-xs font-medium">Edit</button>
-                        <button onClick={() => handleDelete(entry.word)} className="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
-                      </div>
-                    </td>
-                  </>
+                  </tr>
                 )}
-              </tr>
+              </Fragment>
             ))}
             {!loading && entries.length === 0 && (
               <tr>

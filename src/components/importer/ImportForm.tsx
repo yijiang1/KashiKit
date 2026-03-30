@@ -11,7 +11,7 @@ export default function ImportForm() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [lrcContent, setLrcContent] = useState("");
   const [dayCount, setDayCount] = useState(5);
-  const [maxDays, setMaxDays] = useState(30);
+  const [maxDays, setMaxDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [fetchingLrc, setFetchingLrc] = useState(false);
   const [translations, setTranslations] = useState<string[]>([]);
@@ -54,8 +54,8 @@ export default function ImportForm() {
         setLrcStatus(data.hasEnglish ? "transcript-en" : "transcript");
         // Auto-adjust day count to never exceed line count
         if (data.lineCount) {
-          setMaxDays(data.lineCount);
-          setDayCount((prev) => Math.min(prev, data.lineCount));
+          setMaxDays(Math.min(data.lineCount, 14));
+          setDayCount((prev) => Math.min(prev, data.lineCount, 14));
         }
       } else {
         setLrcStatus("notfound");
