@@ -9,9 +9,10 @@ interface Props {
   endTime: number;
   isLooping: boolean;
   autoplay?: boolean;
+  onLineEnd?: () => void;
 }
 
-export default function YouTubePlayer({ videoId, startTime, endTime, isLooping, autoplay }: Props) {
+export default function YouTubePlayer({ videoId, startTime, endTime, isLooping, autoplay, onLineEnd }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -20,11 +21,13 @@ export default function YouTubePlayer({ videoId, startTime, endTime, isLooping, 
   const endTimeRef = useRef(endTime);
   const readyRef = useRef(false);
   const autoplayRef = useRef(autoplay);
+  const onLineEndRef = useRef(onLineEnd);
 
   // Keep refs in sync so interval callback always has latest values
   useEffect(() => { isLoopingRef.current = isLooping; }, [isLooping]);
   useEffect(() => { startTimeRef.current = startTime; }, [startTime]);
   useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
+  useEffect(() => { onLineEndRef.current = onLineEnd; }, [onLineEnd]);
 
   const startPolling = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -32,8 +35,12 @@ export default function YouTubePlayer({ videoId, startTime, endTime, isLooping, 
       const player = playerRef.current;
       if (!player) return;
       const current = player.getCurrentTime();
-      if (isLoopingRef.current && current >= endTimeRef.current) {
-        player.seekTo(startTimeRef.current, true);
+      if (current >= endTimeRef.current) {
+        if (isLoopingRef.current) {
+          player.seekTo(startTimeRef.current, true);
+        } else if (onLineEndRef.current) {
+          onLineEndRef.current();
+        }
       }
     }, 100);
   }, []);
@@ -95,7 +102,7 @@ export default function YouTubePlayer({ videoId, startTime, endTime, isLooping, 
   // When active line changes, seek to new start_time
   useEffect(() => {
     const player = playerRef.current;
-    if (!player) return;
+    if (!player || !readyRef.current) return;
     player.seekTo(startTime, true);
     player.playVideo();
   }, [startTime, endTime]);

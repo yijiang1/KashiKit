@@ -31,6 +31,7 @@ export type LyricLine = {
   end_time: number;
   japanese_text: string;
   english_text: string;
+  trim: number;
   vocabulary: Vocabulary[];
 };
 

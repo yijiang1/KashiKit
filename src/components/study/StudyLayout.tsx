@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LyricLine, Song } from "@/types";
@@ -23,9 +23,11 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
   const [lineIndex, setLineIndex] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [trim, setTrim] = useState(lines[0]?.trim ?? 0);
   const [completed, setCompleted] = useState(alreadyCompleted);
   const [completing, setCompleting] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [freePlay, setFreePlay] = useState(false);
 
   const currentLine = lines[lineIndex];
   if (!currentLine) {
@@ -36,8 +38,17 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
   const canNextLine = lineIndex < lines.length - 1;
   const canPrevDay = day > 1;
   const canNextDay = day < song.total_days;
+  const lineDuration = currentLine.end_time - currentLine.start_time;
   const startTime = Math.max(0, currentLine.start_time + offset);
-  const endTime = Math.max(startTime + 0.5, currentLine.end_time + offset);
+  const endTime = Math.max(startTime + 0.5, currentLine.end_time + offset - trim);
+
+  const handleLineEnd = useCallback(() => {
+    setLineIndex((i) => {
+      const next = Math.min(lines.length - 1, i + 1);
+      setTrim(lines[next]?.trim ?? 0);
+      return next;
+    });
+  }, [lines]);
 
   async function handleComplete() {
     setCompleting(true);
@@ -73,18 +84,44 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
       </div>
 
       {/* YouTube Player */}
-      <YouTubePlayer videoId={song.youtube_id} startTime={startTime} endTime={endTime} isLooping={isLooping} autoplay={day >= 2} />
+      <YouTubePlayer
+        videoId={song.youtube_id}
+        startTime={freePlay ? 0 : startTime}
+        endTime={freePlay ? lines[0].start_time + offset : endTime}
+        isLooping={freePlay ? false : isLooping}
+        autoplay={day >= 2}
+        onLineEnd={freePlay ? () => { setFreePlay(false); setLineIndex(0); setTrim(lines[0]?.trim ?? 0); } : handleLineEnd}
+      />
 
       {/* Controls row */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => setIsLooping((v) => !v)}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-            isLooping ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          {isLooping ? "🔁 Looping" : "▶ Loop off"}
-        </button>
+        {freePlay ? (
+          <button
+            onClick={() => setFreePlay(false)}
+            className="px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap bg-amber-500 text-white hover:bg-amber-600"
+          >
+            ↩ Back to study
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setIsLooping((v) => !v)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                isLooping ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {isLooping ? "🔁 Looping" : "▶ Loop off"}
+            </button>
+            {day >= 2 && (
+              <button
+                onClick={() => setFreePlay(true)}
+                className="px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                ▶ Play full
+              </button>
+            )}
+          </>
+        )}
 
         <div className="flex-1 flex items-center gap-2">
           <button type="button" onClick={() => setOffset((v) => Math.round((v - 0.5) * 10) / 10)}
@@ -103,6 +140,58 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
         </div>
       </div>
 
+      {/* Loop trim — shorten the loop to cut instrumental tails */}
+      {lineDuration > 3 && (
+        <div className="flex items-center gap-3 px-1">
+          <span className="text-xs text-gray-400 whitespace-nowrap">Trim end</span>
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, lineDuration - 1)}
+            step={0.5}
+            value={trim}
+            onChange={(e) => setTrim(Number(e.target.value))}
+            className="flex-1 accent-indigo-600"
+          />
+          <span className={`text-sm font-mono w-12 text-right ${trim === 0 ? "text-gray-300" : "text-indigo-600"}`}>
+            {trim > 0 ? `−${trim.toFixed(1)}s` : "0s"}
+          </span>
+          {trim !== currentLine.trim && (
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch(`/api/trim/${currentLine.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ trim }),
+                });
+                currentLine.trim = trim;
+              }}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              save
+            </button>
+          )}
+          {trim > 0 && trim === currentLine.trim && (
+            <button
+              type="button"
+              onClick={async () => {
+                setTrim(0);
+                await fetch(`/api/trim/${currentLine.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ trim: 0 }),
+                });
+                currentLine.trim = 0;
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              reset
+            </button>
+          )}
+        </div>
+      )}
+
       {showQuiz ? (
         /* Quiz section */
         <Quiz lessonId={lessonId} onClose={() => setShowQuiz(false)} />
@@ -113,12 +202,12 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
 
           {/* Line Navigation */}
           <div className="flex items-center justify-between px-2">
-            <button onClick={() => setLineIndex((i) => Math.max(0, i - 1))} disabled={!canPrevLine}
+            <button onClick={() => { const prev = Math.max(0, lineIndex - 1); setTrim(lines[prev]?.trim ?? 0); setLineIndex(prev); }} disabled={!canPrevLine}
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               ← Prev line
             </button>
             <span className="text-sm text-gray-400">Line {lineIndex + 1} / {lines.length}</span>
-            <button onClick={() => setLineIndex((i) => Math.min(lines.length - 1, i + 1))} disabled={!canNextLine}
+            <button onClick={() => { const next = Math.min(lines.length - 1, lineIndex + 1); setTrim(lines[next]?.trim ?? 0); setLineIndex(next); }} disabled={!canNextLine}
               className="px-4 py-2 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               Next line →
             </button>

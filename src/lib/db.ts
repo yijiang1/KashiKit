@@ -12,12 +12,20 @@ export function getDb(): Database.Database {
     _db.pragma("journal_mode = WAL");
     _db.pragma("foreign_keys = ON");
     initSchema(_db);
+    migrate(_db);
   }
   return _db;
 }
 
 export function uuid(): string {
   return crypto.randomUUID();
+}
+
+function migrate(db: Database.Database) {
+  const cols = db.prepare("PRAGMA table_info(lyric_lines)").all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "trim")) {
+    db.exec("ALTER TABLE lyric_lines ADD COLUMN trim REAL NOT NULL DEFAULT 0");
+  }
 }
 
 function initSchema(db: Database.Database) {

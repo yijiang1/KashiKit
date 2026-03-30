@@ -15,31 +15,40 @@ function parseTimestamp(minutes: string, seconds: string, centiseconds: string):
 }
 
 export function parseLRC(lrcContent: string): ParsedLine[] {
-  const raw: Array<{ timestamp: number; text: string }> = [];
+  // Parse ALL timestamp lines, including blank ones (instrumental markers)
+  const all: Array<{ timestamp: number; text: string }> = [];
 
   for (const line of lrcContent.split("\n")) {
     const match = line.trim().match(TIMESTAMP_REGEX);
     if (!match) continue;
 
     const [, mm, ss, cs, text] = match;
-    const trimmedText = text.trim();
-    if (!trimmedText) continue; // skip blank/interlude lines
-
-    raw.push({
+    all.push({
       timestamp: parseTimestamp(mm, ss, cs),
-      text: trimmedText,
+      text: text.trim(),
     });
   }
 
   // Sort ascending by timestamp (some LRC files are out of order)
-  raw.sort((a, b) => a.timestamp - b.timestamp);
+  all.sort((a, b) => a.timestamp - b.timestamp);
 
-  // Build final lines with end_time = next line's start_time
-  return raw.map((entry, i) => ({
-    start_time: entry.timestamp,
-    end_time: i < raw.length - 1 ? raw[i + 1].timestamp : entry.timestamp + 4,
-    japanese_text: entry.text,
-  }));
+  // Build lyric lines; use the next timestamp (lyric or blank) as end_time
+  // so blank interlude markers correctly bound the singing duration
+  const result: ParsedLine[] = [];
+  for (let i = 0; i < all.length; i++) {
+    if (!all[i].text) continue; // skip blank lines as output, but they still inform end_time below
+
+    // Find the next timestamp (blank or lyric) to use as end_time
+    const nextTimestamp = i < all.length - 1 ? all[i + 1].timestamp : all[i].timestamp + 4;
+
+    result.push({
+      start_time: all[i].timestamp,
+      end_time: nextTimestamp,
+      japanese_text: all[i].text,
+    });
+  }
+
+  return result;
 }
 
 export function distributeLines(lines: ParsedLine[], dayCount: number): ParsedLine[][] {
