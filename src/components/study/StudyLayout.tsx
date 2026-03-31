@@ -136,7 +136,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
           </>
         )}
 
-        <div className="flex-1 flex items-center gap-2">
+        {isAdmin && <div className="flex-1 flex items-center gap-2">
           <button type="button" onClick={() => setOffset((v) => Math.round((v - 0.25) * 100) / 100)}
             className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold flex items-center justify-center">−</button>
           <div className="flex-1 text-center">
@@ -166,7 +166,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
           {offset !== 0 && (
             <button type="button" onClick={() => setOffset(0)} className="text-xs text-gray-400 hover:text-gray-600">reset</button>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Loop trim */}

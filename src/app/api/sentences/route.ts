@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, run } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("word") || "";
@@ -33,4 +33,11 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(rows);
+}
+
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id") || "";
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  await run("DELETE FROM sentence_bank WHERE id = ?", [id]);
+  return NextResponse.json({ ok: true });
 }

@@ -11,14 +11,17 @@ const ADMIN_ONLY_PATTERNS: { method: string; pattern: RegExp }[] = [
   { method: "GET",    pattern: /^\/api\/fetch-lyrics/ },
   { method: "GET",    pattern: /^\/api\/fetch-transcript/ },
   { method: "POST",   pattern: /^\/api\/quiz\/generate\// },
+  { method: "DELETE", pattern: /^\/api\/sentences/ },
 ];
+
+const ADMIN_ONLY_PAGES = ["/import", "/sentence-bank"];
 
 export function middleware(req: NextRequest) {
   const isAdmin = process.env.ADMIN_MODE === "true";
   const { pathname } = req.nextUrl;
 
-  // Block /import page for non-admins
-  if (!isAdmin && pathname === "/import") {
+  // Block admin-only pages
+  if (!isAdmin && ADMIN_ONLY_PAGES.includes(pathname)) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
@@ -35,5 +38,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/import", "/api/:path*"],
+  matcher: ["/import", "/sentence-bank", "/api/:path*"],
 };

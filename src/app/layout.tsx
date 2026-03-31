@@ -21,18 +21,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavStats isAdmin={isAdmin} />
               <span className="w-px h-5 bg-gray-200" />
               <a href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
-                Dashboard
+                Lessons
               </a>
               <a href="/dictionary" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Dictionary
               </a>
               {isAdmin && (
-                <a
-                  href="/import"
-                  className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  + Import song
-                </a>
+                <>
+                  <a href="/sentence-bank" className="text-gray-600 hover:text-gray-900 transition-colors">
+                    Sentence Bank
+                  </a>
+                  <a
+                    href="/import"
+                    className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    + Import song
+                  </a>
+                </>
               )}
             </nav>
           </div>
