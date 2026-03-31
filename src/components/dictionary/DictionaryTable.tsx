@@ -24,7 +24,11 @@ const POS_COLORS: Record<string, string> = {
   other: "bg-gray-100 text-gray-600",
 };
 
-export default function DictionaryTable() {
+interface Props {
+  isAdmin: boolean;
+}
+
+export default function DictionaryTable({ isAdmin }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
@@ -104,7 +108,7 @@ export default function DictionaryTable() {
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Meaning</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">POS</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Grammar notes</th>
-              <th className="px-4 py-3 w-20"></th>
+              {isAdmin && <th className="px-4 py-3 w-20"></th>}
             </tr>
           </thead>
           <tbody>
@@ -114,7 +118,7 @@ export default function DictionaryTable() {
                   className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${expanded === entry.word ? "bg-gray-50" : ""}`}
                   onClick={() => { if (editing !== entry.word) toggleExpand(entry.word); }}
                 >
-                  {editing === entry.word && editForm ? (
+                  {isAdmin && editing === entry.word && editForm ? (
                     <>
                       <td className="px-4 py-2 font-medium text-gray-900">{entry.word}</td>
                       <td className="px-4 py-2">
@@ -180,20 +184,21 @@ export default function DictionaryTable() {
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 text-xs italic">{entry.grammar_notes}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => startEdit(entry)} className="text-indigo-500 hover:text-indigo-700 text-xs font-medium">Edit</button>
-                          <button onClick={() => handleDelete(entry.word)} className="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-2.5">
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => startEdit(entry)} className="text-indigo-500 hover:text-indigo-700 text-xs font-medium">Edit</button>
+                            <button onClick={() => handleDelete(entry.word)} className="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
+                          </div>
+                        </td>
+                      )}
                     </>
                   )}
                 </tr>
                 {expanded === entry.word && editing !== entry.word && (
                   <tr key={`${entry.word}-detail`} className="bg-gray-50/50">
-                    <td colSpan={6} className="px-6 py-4">
+                    <td colSpan={isAdmin ? 6 : 5} className="px-6 py-4">
                       <div className="max-w-lg space-y-3">
-                        {/* Pronounce */}
                         <button
                           onClick={() => speakJapanese(entry.word)}
                           className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -204,7 +209,6 @@ export default function DictionaryTable() {
                           Pronounce
                         </button>
 
-                        {/* AI example sentence */}
                         {entry.example_sentence && (
                           <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -228,7 +232,6 @@ export default function DictionaryTable() {
                           </div>
                         )}
 
-                        {/* Song examples with YouTube clips */}
                         <SentenceExamples word={entry.word} />
                       </div>
                     </td>
@@ -238,8 +241,8 @@ export default function DictionaryTable() {
             ))}
             {!loading && entries.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                  {search ? "No words match your search" : "Dictionary is empty — import a song to start building it"}
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-gray-400">
+                  {search ? "No words match your search" : "Dictionary is empty"}
                 </td>
               </tr>
             )}

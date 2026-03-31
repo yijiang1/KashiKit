@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import StudyLayout from "@/components/study/StudyLayout";
+import { isAdmin } from "@/lib/admin";
 import type { Song, LyricLine, Vocabulary } from "@/types";
 
 interface Props {
@@ -13,24 +14,24 @@ export default async function StudyPage({ params }: Props) {
 
   if (isNaN(day) || day < 1) notFound();
 
-  const db = getDb();
-
-  // Fetch song
-  const song = db.prepare("SELECT * FROM songs WHERE id = ?").get(songId) as Song | undefined;
+  const song = await queryOne<Song>("SELECT * FROM songs WHERE id = ?", [songId]);
   if (!song) notFound();
 
-  // Fetch lesson for this day
-  const lesson = db.prepare("SELECT * FROM lessons WHERE song_id = ? AND day_number = ?").get(songId, day) as { id: string; song_id: string; day_number: number } | undefined;
+  const lesson = await queryOne<{ id: string; song_id: string; day_number: number }>(
+    "SELECT * FROM lessons WHERE song_id = ? AND day_number = ?",
+    [songId, day]
+  );
   if (!lesson) notFound();
 
-  // Fetch lyric lines with vocabulary
-  const rawLines = db
-    .prepare("SELECT * FROM lyric_lines WHERE lesson_id = ? ORDER BY start_time ASC")
-    .all(lesson.id) as Record<string, unknown>[];
+  const rawLines = await query<Record<string, unknown>>(
+    "SELECT * FROM lyric_lines WHERE lesson_id = ? ORDER BY start_time ASC",
+    [lesson.id]
+  );
 
-  const vocab = db
-    .prepare("SELECT * FROM vocabulary WHERE lyric_line_id IN (SELECT id FROM lyric_lines WHERE lesson_id = ?)")
-    .all(lesson.id) as (Vocabulary & { lyric_line_id: string })[];
+  const vocab = await query<Vocabulary & { lyric_line_id: string }>(
+    "SELECT * FROM vocabulary WHERE lyric_line_id IN (SELECT id FROM lyric_lines WHERE lesson_id = ?)",
+    [lesson.id]
+  );
 
   const vocabByLine = new Map<string, Vocabulary[]>();
   for (const v of vocab) {
@@ -44,12 +45,10 @@ export default async function StudyPage({ params }: Props) {
     vocabulary: vocabByLine.get(line.id as string) ?? [],
   }));
 
-  // Check if already completed
-  const completionCount = db
-    .prepare("SELECT COUNT(*) as cnt FROM lesson_completions WHERE lesson_id = ?")
-    .get(lesson.id) as { cnt: number };
-
-  const alreadyCompleted = completionCount.cnt > 0;
+  const quizRow = await queryOne<{ lesson_id: string }>(
+    "SELECT lesson_id FROM quizzes WHERE lesson_id = ?",
+    [lesson.id]
+  );
 
   return (
     <StudyLayout
@@ -57,7 +56,8 @@ export default async function StudyPage({ params }: Props) {
       lines={lines}
       day={day}
       lessonId={lesson.id}
-      alreadyCompleted={alreadyCompleted}
+      isAdmin={isAdmin}
+      hasQuiz={!!quizRow}
     />
   );
 }

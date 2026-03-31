@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { run } from "@/lib/db";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ lineId: string }> }) {
   const { lineId } = await params;
@@ -9,8 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ line
     return NextResponse.json({ error: "Invalid trim value" }, { status: 400 });
   }
 
-  const db = getDb();
-  db.prepare("UPDATE lyric_lines SET trim = ? WHERE id = ?").run(trim, lineId);
+  await run("UPDATE lyric_lines SET trim = ? WHERE id = ?", [trim, lineId]);
 
   return NextResponse.json({ ok: true });
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { LyricLine, Song } from "@/types";
 import dynamic from "next/dynamic";
 import LyricDisplay from "./LyricDisplay";
 import Quiz from "./Quiz";
+import { markComplete, isLessonComplete } from "@/lib/progress";
 
 const YouTubePlayer = dynamic(() => import("./YouTubePlayer"), { ssr: false });
 
@@ -15,19 +15,25 @@ interface Props {
   lines: LyricLine[];
   day: number;
   lessonId: string;
-  alreadyCompleted: boolean;
+  isAdmin: boolean;
+  hasQuiz: boolean;
 }
 
-export default function StudyLayout({ song, lines, day, lessonId, alreadyCompleted }: Props) {
-  const router = useRouter();
+export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQuiz: initialHasQuiz }: Props) {
   const [lineIndex, setLineIndex] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(song.sync_offset ?? 0);
+  const [savedOffset, setSavedOffset] = useState(song.sync_offset ?? 0);
   const [trim, setTrim] = useState(lines[0]?.trim ?? 0);
-  const [completed, setCompleted] = useState(alreadyCompleted);
-  const [completing, setCompleting] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [freePlay, setFreePlay] = useState(false);
+  const [hasQuiz, setHasQuiz] = useState(initialHasQuiz);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+
+  useEffect(() => {
+    setCompleted(isLessonComplete(lessonId));
+  }, [lessonId]);
 
   const currentLine = lines[lineIndex];
   if (!currentLine) {
@@ -50,12 +56,19 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
     });
   }, [lines]);
 
-  async function handleComplete() {
-    setCompleting(true);
-    await fetch(`/api/complete-lesson/${lessonId}`, { method: "POST" });
+  function handleComplete() {
+    markComplete(lessonId);
     setCompleted(true);
-    setCompleting(false);
-    router.refresh();
+  }
+
+  async function handleGenerateQuiz() {
+    setGeneratingQuiz(true);
+    try {
+      await fetch(`/api/quiz/generate/${lessonId}`, { method: "POST" });
+      setHasQuiz(true);
+    } finally {
+      setGeneratingQuiz(false);
+    }
   }
 
   return (
@@ -124,23 +137,39 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
         )}
 
         <div className="flex-1 flex items-center gap-2">
-          <button type="button" onClick={() => setOffset((v) => Math.round((v - 0.5) * 10) / 10)}
+          <button type="button" onClick={() => setOffset((v) => Math.round((v - 0.25) * 100) / 100)}
             className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold flex items-center justify-center">−</button>
           <div className="flex-1 text-center">
             <span className="text-xs text-gray-400">Sync offset</span>
             <p className={`text-sm font-mono font-medium ${offset === 0 ? "text-gray-400" : "text-indigo-600"}`}>
-              {offset >= 0 ? "+" : ""}{offset.toFixed(1)}s
+              {offset >= 0 ? "+" : ""}{offset.toFixed(2)}s
             </p>
           </div>
-          <button type="button" onClick={() => setOffset((v) => Math.round((v + 0.5) * 10) / 10)}
+          <button type="button" onClick={() => setOffset((v) => Math.round((v + 0.25) * 100) / 100)}
             className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold flex items-center justify-center">+</button>
+          {isAdmin && offset !== savedOffset && (
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch(`/api/sync-offset/${song.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ sync_offset: offset }),
+                });
+                setSavedOffset(offset);
+              }}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              save
+            </button>
+          )}
           {offset !== 0 && (
             <button type="button" onClick={() => setOffset(0)} className="text-xs text-gray-400 hover:text-gray-600">reset</button>
           )}
         </div>
       </div>
 
-      {/* Loop trim — shorten the loop to cut instrumental tails */}
+      {/* Loop trim */}
       {lineDuration > 3 && (
         <div className="flex items-center gap-3 px-1">
           <span className="text-xs text-gray-400 whitespace-nowrap">Trim end</span>
@@ -156,7 +185,7 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
           <span className={`text-sm font-mono w-12 text-right ${trim === 0 ? "text-gray-300" : "text-indigo-600"}`}>
             {trim > 0 ? `−${trim.toFixed(1)}s` : "0s"}
           </span>
-          {trim !== currentLine.trim && (
+          {isAdmin && trim !== currentLine.trim && (
             <button
               type="button"
               onClick={async () => {
@@ -172,7 +201,7 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
               save
             </button>
           )}
-          {trim > 0 && trim === currentLine.trim && (
+          {isAdmin && trim > 0 && trim === currentLine.trim && (
             <button
               type="button"
               onClick={async () => {
@@ -193,7 +222,6 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
       )}
 
       {showQuiz ? (
-        /* Quiz section */
         <Quiz lessonId={lessonId} onClose={() => setShowQuiz(false)} />
       ) : (
         <>
@@ -217,12 +245,21 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
 
       {/* Complete Day / Quiz buttons */}
       <div className="border-t pt-4 space-y-3">
+        {isAdmin && !hasQuiz && (
+          <button
+            onClick={handleGenerateQuiz}
+            disabled={generatingQuiz}
+            className="w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-60 transition-colors text-sm font-medium"
+          >
+            {generatingQuiz ? "Generating quiz…" : "⚡ Generate quiz for this lesson"}
+          </button>
+        )}
         {completed ? (
           <>
             <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-50 text-green-700 font-medium">
               <span>✓</span> Day {day} completed
             </div>
-            {!showQuiz && (
+            {!showQuiz && hasQuiz && (
               <button
                 onClick={() => setShowQuiz(true)}
                 className="w-full py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
@@ -233,18 +270,19 @@ export default function StudyLayout({ song, lines, day, lessonId, alreadyComplet
           </>
         ) : (
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowQuiz(true)}
-              className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
-            >
-              Take Quiz
-            </button>
+            {hasQuiz && (
+              <button
+                onClick={() => setShowQuiz(true)}
+                className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
+              >
+                Take Quiz
+              </button>
+            )}
             <button
               onClick={handleComplete}
-              disabled={completing}
-              className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+              className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
             >
-              {completing ? "Saving…" : `Complete Day ${day}`}
+              Complete Day {day}
             </button>
           </div>
         )}

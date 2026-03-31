@@ -8,9 +8,10 @@ import type { Song } from "@/types";
 interface Props {
   song: Song;
   completedDays: number;
+  isAdmin: boolean;
 }
 
-export default function SongCard({ song, completedDays }: Props) {
+export default function SongCard({ song, completedDays, isAdmin }: Props) {
   const router = useRouter();
   const thumbnailUrl = `https://img.youtube.com/vi/${song.youtube_id}/mqdefault.jpg`;
   const nextDay = Math.min(completedDays + 1, song.total_days);
@@ -18,7 +19,6 @@ export default function SongCard({ song, completedDays }: Props) {
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault();
     if (!confirm(`Delete "${song.title}"?`)) return;
-
     await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
     router.refresh();
   }
@@ -54,14 +54,15 @@ export default function SongCard({ song, completedDays }: Props) {
         </div>
       </Link>
 
-      {/* Delete button */}
-      <button
-        onClick={handleDelete}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
-        title="Delete song"
-      >
-        ×
-      </button>
+      {isAdmin && (
+        <button
+          onClick={handleDelete}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
+          title="Delete song"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }

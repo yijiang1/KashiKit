@@ -4,6 +4,7 @@ export type Song = {
   youtube_id: string;
   total_days: number;
   created_at: string;
+  sync_offset: number;
 };
 
 export type Lesson = {

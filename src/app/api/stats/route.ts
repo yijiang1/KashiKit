@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { query } from "@/lib/db";
 
 function calcStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
@@ -26,11 +26,9 @@ function calcStreak(dates: string[]): number {
 }
 
 export async function GET() {
-  const db = getDb();
-
-  const completions = db
-    .prepare("SELECT completed_at, lesson_id FROM lesson_completions")
-    .all() as { completed_at: string; lesson_id: string }[];
+  const completions = await query<{ completed_at: string; lesson_id: string }>(
+    "SELECT completed_at, lesson_id FROM lesson_completions"
+  );
 
   if (completions.length === 0) return NextResponse.json({ streak: 0, today: 0, total: 0, lessonIds: [] });
 

@@ -1,4 +1,5 @@
 import DictionaryTable from "@/components/dictionary/DictionaryTable";
+import { isAdmin } from "@/lib/admin";
 
 export default function DictionaryPage() {
   return (
@@ -9,7 +10,7 @@ export default function DictionaryPage() {
           Your personal vocabulary database — words are cached here as you import songs
         </p>
       </div>
-      <DictionaryTable />
+      <DictionaryTable isAdmin={isAdmin} />
     </div>
   );
 }
