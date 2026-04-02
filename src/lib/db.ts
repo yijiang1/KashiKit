@@ -125,6 +125,12 @@ async function ensureInit(): Promise<void> {
     if (!songColNames.includes("sync_offset")) {
       await db.execute("ALTER TABLE songs ADD COLUMN sync_offset REAL NOT NULL DEFAULT 0");
     }
+    if (!songColNames.includes("difficulty")) {
+      await db.execute("ALTER TABLE songs ADD COLUMN difficulty INTEGER DEFAULT NULL CHECK (difficulty IS NULL OR (difficulty >= 1 AND difficulty <= 5))");
+    }
+    if (!songColNames.includes("difficulty_reason")) {
+      await db.execute("ALTER TABLE songs ADD COLUMN difficulty_reason TEXT DEFAULT NULL");
+    }
   })();
   return _initPromise;
 }

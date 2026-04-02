@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { Song } from "@/types";
+import StarRating from "@/components/shared/StarRating";
 
 interface Props {
   song: Song;
@@ -15,12 +17,24 @@ export default function SongCard({ song, completedDays, isAdmin }: Props) {
   const router = useRouter();
   const thumbnailUrl = `https://img.youtube.com/vi/${song.youtube_id}/mqdefault.jpg`;
   const nextDay = Math.min(completedDays + 1, song.total_days);
+  const [difficulty, setDifficulty] = useState(song.difficulty);
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault();
     if (!confirm(`Delete "${song.title}"?`)) return;
     await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
     router.refresh();
+  }
+
+  async function handleDifficultyChange(value: number | null) {
+    const prev = difficulty;
+    setDifficulty(value);
+    const res = await fetch(`/api/difficulty/${song.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ difficulty: value }),
+    });
+    if (!res.ok) setDifficulty(prev);
   }
 
   return (
@@ -38,6 +52,16 @@ export default function SongCard({ song, completedDays, isAdmin }: Props) {
         </div>
         <div className="p-4">
           <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
+          <div className="mt-1" onClick={isAdmin ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}>
+            <StarRating
+              value={difficulty}
+              onChange={isAdmin ? handleDifficultyChange : undefined}
+              size="sm"
+            />
+            {isAdmin && song.difficulty_reason && (
+              <p className="text-xs text-gray-400 mt-0.5 italic line-clamp-2">{song.difficulty_reason}</p>
+            )}
+          </div>
           <p className="text-sm text-indigo-600 mt-1">
             {completedDays === song.total_days
               ? "✓ Complete"

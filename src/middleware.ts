@@ -6,6 +6,8 @@ const ADMIN_ONLY_PATTERNS: { method: string; pattern: RegExp }[] = [
   { method: "DELETE", pattern: /^\/api\/dictionary/ },
   { method: "POST",   pattern: /^\/api\/import/ },
   { method: "PUT",    pattern: /^\/api\/sync-offset\// },
+  { method: "PUT",    pattern: /^\/api\/difficulty\// },
+  { method: "POST",   pattern: /^\/api\/difficulty\/assess\// },
   { method: "PUT",    pattern: /^\/api\/trim\// },
   { method: "GET",    pattern: /^\/api\/usage/ },
   { method: "GET",    pattern: /^\/api\/fetch-lyrics/ },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { run, uuid } from "@/lib/db";
 import { parseLRC, distributeLines } from "@/lib/lrc/parser";
-import { analyzeAllLines } from "@/lib/ai/pipeline";
+import { analyzeAllLines, assessDifficulty } from "@/lib/ai/pipeline";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
 import { extractYouTubeId } from "@/lib/youtube/loader";
 import type { ImportPayload } from "@/types";
@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
     songId, title, youtubeId, chunks.length,
   ]);
 
+  // Accumulate all lyrics and vocab across days for difficulty assessment
+  const allLyrics: string[] = [];
+  const allVocab: { word: string; pos: string }[] = [];
+
   for (let dayIndex = 0; dayIndex < chunks.length; dayIndex++) {
     const chunk = chunks[dayIndex];
 
@@ -64,6 +68,7 @@ export async function POST(req: NextRequest) {
       );
 
       lyricsForQuiz.push(`${line.japanese_text} → ${ai.english || ""}`);
+      allLyrics.push(line.japanese_text);
 
       if (ai.vocabulary.length > 0) {
         for (const v of ai.vocabulary) {
@@ -83,6 +88,7 @@ export async function POST(req: NextRequest) {
               meaning: v.english_meaning ?? "",
               pos: v.part_of_speech ?? "",
             });
+            allVocab.push({ word: v.word, pos: v.part_of_speech ?? "" });
           }
         }
 
@@ -123,6 +129,14 @@ export async function POST(req: NextRequest) {
     } catch {
       // Don't fail the whole import if quiz generation fails
     }
+  }
+
+  // Assess difficulty using AI
+  try {
+    const { difficulty, reason } = await assessDifficulty(allLyrics, allVocab);
+    await run("UPDATE songs SET difficulty = ?, difficulty_reason = ? WHERE id = ?", [difficulty, reason, songId]);
+  } catch {
+    // Don't fail import if difficulty assessment fails
   }
 
   return NextResponse.json({ songId });

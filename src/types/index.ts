@@ -5,6 +5,8 @@ export type Song = {
   total_days: number;
   created_at: string;
   sync_offset: number;
+  difficulty: number | null;
+  difficulty_reason: string | null;
 };
 
 export type Lesson = {

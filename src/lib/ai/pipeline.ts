@@ -88,6 +88,56 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
   }
 }
 
+const DIFFICULTY_PROMPT = `You are a Japanese language difficulty assessor for language learners.
+Given these song lyrics and their extracted vocabulary, rate the overall difficulty on a scale of 1-5:
+1 = Beginner (simple everyday vocab, basic grammar like です/ます, mostly hiragana)
+2 = Elementary (common words, some kanji, basic conjugations and particles)
+3 = Intermediate (varied vocab, compound verbs, conversational grammar, moderate kanji)
+4 = Upper-intermediate (abstract/literary vocab, complex grammar, fast pacing, many kanji)
+5 = Advanced (poetic/archaic language, rare kanji, dense grammar, cultural references)
+
+Return ONLY valid JSON (no markdown, no code fences):
+{"difficulty": <1-5>, "reason": "<one sentence explanation>"}`;
+
+export async function assessDifficulty(
+  lyrics: string[],
+  vocab: { word: string; pos: string }[]
+): Promise<{ difficulty: number; reason: string }> {
+  try {
+    const uniqueVocab = [...new Map(vocab.map((v) => [v.word, v])).values()];
+    const summary = [
+      "LYRICS:",
+      ...lyrics,
+      "",
+      `VOCABULARY (${uniqueVocab.length} unique words):`,
+      ...uniqueVocab.map((v) => `${v.word} [${v.pos}]`),
+    ].join("\n");
+
+    const result = await model.generateContent(`${DIFFICULTY_PROMPT}\n\n${summary}`);
+    const text = result.response.text();
+    const cleaned = text.replace(/^```json?\n?/i, "").replace(/\n?```$/i, "").trim();
+
+    const usage = result.response.usageMetadata;
+    if (usage) {
+      await logApiUsage({
+        prompt_tokens: usage.promptTokenCount ?? 0,
+        completion_tokens: usage.candidatesTokenCount ?? 0,
+        total_tokens: usage.totalTokenCount ?? 0,
+        purpose: "difficulty_assessment",
+      });
+    }
+
+    const parsed = JSON.parse(cleaned) as { difficulty: number; reason: string };
+    const d = parsed.difficulty;
+    if (typeof d === "number" && d >= 1 && d <= 5 && Number.isInteger(d)) {
+      return { difficulty: d, reason: parsed.reason ?? "" };
+    }
+    return { difficulty: 3, reason: "" };
+  } catch {
+    return { difficulty: 3, reason: "" };
+  }
+}
+
 export async function analyzeAllLines(
   lines: ParsedLine[],
   onProgress?: (done: number, total: number) => void
