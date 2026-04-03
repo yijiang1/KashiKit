@@ -99,15 +99,22 @@ export async function GET(req: NextRequest) {
 
   try {
     // Fetch Japanese captions
-    let jpRaw: TranscriptItem[];
+    let jpRaw: TranscriptItem[] = [];
     try {
       jpRaw = await YoutubeTranscript.fetchTranscript(videoId, { lang: "ja" });
     } catch {
-      jpRaw = await YoutubeTranscript.fetchTranscript(videoId);
+      // lang=ja not available; try default and verify it's actually Japanese
+      try {
+        const fallback = await YoutubeTranscript.fetchTranscript(videoId);
+        const isJapanese = fallback.some((item) => /[\u3040-\u30FF\u4E00-\u9FFF]/.test(item.text));
+        if (isJapanese) jpRaw = fallback;
+      } catch {
+        // no captions at all
+      }
     }
 
     if (!jpRaw || jpRaw.length === 0) {
-      return NextResponse.json({ error: "No captions found for this video" }, { status: 404 });
+      return NextResponse.json({ error: "No Japanese captions found for this video" }, { status: 404 });
     }
 
     // Use LLM to group fragments into natural phrases

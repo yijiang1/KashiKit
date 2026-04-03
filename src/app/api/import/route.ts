@@ -11,7 +11,7 @@ export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const body: ImportPayload = await req.json();
-  const { youtubeUrl, lrcContent, title, dayCount, translations } = body;
+  const { youtubeUrl, lrcContent, title, artist, dayCount, translations } = body;
 
   const youtubeId = extractYouTubeId(youtubeUrl);
   if (!youtubeId) {
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
   await run("DELETE FROM songs WHERE youtube_id = ?", [youtubeId]);
 
   const songId = uuid();
-  await run("INSERT INTO songs (id, title, youtube_id, total_days) VALUES (?, ?, ?, ?)", [
-    songId, title, youtubeId, chunks.length,
+  await run("INSERT INTO songs (id, title, artist, youtube_id, total_days) VALUES (?, ?, ?, ?, ?)", [
+    songId, title, artist ?? "", youtubeId, chunks.length,
   ]);
 
   // Accumulate all lyrics and vocab across days for difficulty assessment

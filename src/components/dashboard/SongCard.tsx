@@ -52,15 +52,13 @@ export default function SongCard({ song, completedDays, isAdmin }: Props) {
         </div>
         <div className="p-4">
           <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
+          <p className="text-xs text-gray-500 truncate">{song.artist}</p>
           <div className="mt-1" onClick={isAdmin ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}>
             <StarRating
               value={difficulty}
               onChange={isAdmin ? handleDifficultyChange : undefined}
               size="sm"
             />
-            {isAdmin && song.difficulty_reason && (
-              <p className="text-xs text-gray-400 mt-0.5 italic line-clamp-2">{song.difficulty_reason}</p>
-            )}
           </div>
           <p className="text-sm text-indigo-600 mt-1">
             {completedDays === song.total_days

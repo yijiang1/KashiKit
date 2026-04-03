@@ -25,6 +25,8 @@ export default function LyricsEditor({ songs }: Props) {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [collapsedLessons, setCollapsedLessons] = useState<Set<string>>(new Set());
   const [globalOffset, setGlobalOffset] = useState<string>("");
+  const [artist, setArtist] = useState<string>("");
+  const [savingArtist, setSavingArtist] = useState(false);
 
   // Warn on unsaved changes
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function LyricsEditor({ songs }: Props) {
       if (!res.ok) throw new Error("Failed to load song");
       const data: EditorSongData = await res.json();
       setSongData(data);
+      setArtist(data.song.artist ?? "");
     } catch (err) {
       alert("Failed to load song data");
       console.error(err);
@@ -251,6 +254,25 @@ export default function LyricsEditor({ songs }: Props) {
     setDirty(true);
   }
 
+  async function autoFillArtist() {
+    if (!songData) return;
+    const oEmbed = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${songData.song.youtube_id}&format=json`);
+    if (!oEmbed.ok) return;
+    const data = await oEmbed.json();
+    if (data.author_name) setArtist(data.author_name);
+  }
+
+  async function saveArtist() {
+    if (!selectedSongId) return;
+    setSavingArtist(true);
+    await fetch(`/api/songs/${selectedSongId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist }),
+    });
+    setSavingArtist(false);
+  }
+
   function toggleLesson(lessonId: string) {
     setCollapsedLessons((prev) => {
       const next = new Set(prev);
@@ -287,6 +309,35 @@ export default function LyricsEditor({ songs }: Props) {
           </button>
         )}
       </div>
+
+      {/* Artist field */}
+      {songData && (
+        <div className="flex items-center gap-2 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <span className="text-gray-600 shrink-0">Artist</span>
+          <input
+            type="text"
+            value={artist}
+            onChange={(e) => setArtist(e.target.value)}
+            placeholder="e.g. 米津玄師"
+            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={autoFillArtist}
+            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
+          >
+            Auto-fill
+          </button>
+          <button
+            type="button"
+            onClick={saveArtist}
+            disabled={savingArtist}
+            className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+          >
+            {savingArtist ? "Saving..." : "Save"}
+          </button>
+        </div>
+      )}
 
       {/* Global offset tool */}
       {songData && (

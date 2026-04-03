@@ -17,6 +17,7 @@ export default function ImportForm() {
   const [translations, setTranslations] = useState<string[]>([]);
   const [fetchingTranscript, setFetchingTranscript] = useState(false);
   const [lrcStatus, setLrcStatus] = useState<"idle" | "found" | "notfound" | "transcript" | "transcript-en">("idle");
+  const [matchedTrack, setMatchedTrack] = useState<{ trackName: string; artistName: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function fetchLyrics() {
@@ -30,8 +31,10 @@ export default function ImportForm() {
 
       if (res.ok) {
         setLrcContent(data.lrc);
+        setMatchedTrack({ trackName: data.trackName, artistName: data.artistName });
         setLrcStatus("found");
       } else {
+        setMatchedTrack(null);
         setLrcStatus("notfound");
       }
     } catch {
@@ -76,7 +79,7 @@ export default function ImportForm() {
       const res = await fetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtubeUrl, lrcContent, title, dayCount, translations }),
+        body: JSON.stringify({ youtubeUrl, lrcContent, title, artist, dayCount, translations }),
       });
 
       const data = await res.json();
@@ -111,11 +114,12 @@ export default function ImportForm() {
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Artist <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="text-sm font-medium text-gray-700">Artist</label>
           <input
             type="text"
             value={artist}
             onChange={(e) => setArtist(e.target.value)}
+            required
             placeholder="e.g. YOASOBI"
             className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-400"
           />
@@ -161,8 +165,10 @@ export default function ImportForm() {
         <div className="flex items-center justify-between">
           <div>
             <label className="text-sm font-medium text-gray-700">LRC lyrics</label>
-            {lrcStatus === "found" && (
-              <span className="ml-2 text-xs text-green-600 font-medium">✓ Lyrics found</span>
+            {lrcStatus === "found" && matchedTrack && (
+              <span className="ml-2 text-xs text-green-600 font-medium">
+                ✓ Matched: {matchedTrack.trackName}{matchedTrack.artistName ? ` — ${matchedTrack.artistName}` : ""}
+              </span>
             )}
             {lrcStatus === "transcript" && (
               <span className="ml-2 text-xs text-green-600 font-medium">✓ Captions fetched from video</span>

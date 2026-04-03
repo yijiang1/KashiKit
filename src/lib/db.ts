@@ -128,6 +128,9 @@ async function ensureInit(): Promise<void> {
     if (!songColNames.includes("difficulty_reason")) {
       await db.execute("ALTER TABLE songs ADD COLUMN difficulty_reason TEXT DEFAULT NULL");
     }
+    if (!songColNames.includes("artist")) {
+      await db.execute("ALTER TABLE songs ADD COLUMN artist TEXT NOT NULL DEFAULT ''");
+    }
   })();
   return _initPromise;
 }
