@@ -4,6 +4,8 @@ import StudyLayout from "@/components/study/StudyLayout";
 import { isAdmin } from "@/lib/admin";
 import type { Song, LyricLine, Vocabulary } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ songId: string; day: string }>;
 }

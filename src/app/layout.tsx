@@ -31,6 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <a href="/sentence-bank" className="text-gray-600 hover:text-gray-900 transition-colors">
                     Sentence Bank
                   </a>
+                  <a href="/admin/lyrics-editor" className="text-gray-600 hover:text-gray-900 transition-colors">
+                    Lyrics Editor
+                  </a>
                   <a
                     href="/import"
                     className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors"

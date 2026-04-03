@@ -11,22 +11,18 @@ export async function GET(req: NextRequest) {
   let rows;
   if (exclude) {
     rows = await query(
-      `SELECT sb.japanese_text, sb.english_text, sb.youtube_id, sb.start_time, sb.end_time, sb.song_title,
-              COALESCE(s.sync_offset, 0) AS sync_offset
-       FROM sentence_bank sb
-       LEFT JOIN songs s ON s.youtube_id = sb.youtube_id
-       WHERE EXISTS (SELECT 1 FROM json_each(sb.words) WHERE value = ?)
-         AND sb.japanese_text != ?
+      `SELECT japanese_text, english_text, youtube_id, start_time, end_time, song_title
+       FROM sentence_bank
+       WHERE EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
+         AND japanese_text != ?
        LIMIT 10`,
       [word, exclude]
     );
   } else {
     rows = await query(
-      `SELECT sb.japanese_text, sb.english_text, sb.youtube_id, sb.start_time, sb.end_time, sb.song_title,
-              COALESCE(s.sync_offset, 0) AS sync_offset
-       FROM sentence_bank sb
-       LEFT JOIN songs s ON s.youtube_id = sb.youtube_id
-       WHERE EXISTS (SELECT 1 FROM json_each(sb.words) WHERE value = ?)
+      `SELECT japanese_text, english_text, youtube_id, start_time, end_time, song_title
+       FROM sentence_bank
+       WHERE EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
        LIMIT 10`,
       [word]
     );

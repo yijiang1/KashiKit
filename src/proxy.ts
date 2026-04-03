@@ -5,7 +5,6 @@ const ADMIN_ONLY_PATTERNS: { method: string; pattern: RegExp }[] = [
   { method: "PUT",    pattern: /^\/api\/dictionary/ },
   { method: "DELETE", pattern: /^\/api\/dictionary/ },
   { method: "POST",   pattern: /^\/api\/import/ },
-  { method: "PUT",    pattern: /^\/api\/sync-offset\// },
   { method: "PUT",    pattern: /^\/api\/difficulty\// },
   { method: "POST",   pattern: /^\/api\/difficulty\/assess\// },
   { method: "PUT",    pattern: /^\/api\/trim\// },
@@ -18,7 +17,7 @@ const ADMIN_ONLY_PATTERNS: { method: string; pattern: RegExp }[] = [
 
 const ADMIN_ONLY_PAGES = ["/import", "/sentence-bank"];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const isAdmin = process.env.ADMIN_MODE === "true";
   const { pathname } = req.nextUrl;
 

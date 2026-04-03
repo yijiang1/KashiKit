@@ -4,13 +4,19 @@ interface Props {
   value: number;
   onChange: (n: number) => void;
   max?: number;
+  lineCount?: number;
 }
 
-export default function DaySlider({ value, onChange, max = 30 }: Props) {
+export default function DaySlider({ value, onChange, max = 30, lineCount }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <label className="text-sm font-medium text-gray-700">Course length</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Course length</label>
+          {lineCount !== undefined && (
+            <span className="text-xs text-gray-400">{lineCount} lines · ~{Math.ceil(lineCount / value)} per day</span>
+          )}
+        </div>
         <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-0.5 rounded-full">
           {value} {value === 1 ? "day" : "days"}
         </span>

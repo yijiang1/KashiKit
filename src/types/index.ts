@@ -4,7 +4,6 @@ export type Song = {
   youtube_id: string;
   total_days: number;
   created_at: string;
-  sync_offset: number;
   difficulty: number | null;
   difficulty_reason: string | null;
 };
@@ -57,4 +56,37 @@ export type ImportPayload = {
   title: string;
   dayCount: number;
   translations?: string[]; // parallel to LRC lines, from YouTube EN captions
+};
+
+// Lyrics Editor types
+export type EditorLine = LyricLine & {
+  _status?: "modified" | "added";
+};
+
+export type EditorLesson = Lesson & {
+  lines: EditorLine[];
+};
+
+export type EditorSongData = {
+  song: Song;
+  lessons: EditorLesson[];
+};
+
+export type EditorSavePayload = {
+  updates: Array<{
+    id: string;
+    japanese_text?: string;
+    english_text?: string;
+    start_time?: number;
+    end_time?: number;
+  }>;
+  deletes: string[];
+  additions: Array<{
+    id: string;
+    lesson_id: string;
+    start_time: number;
+    end_time: number;
+    japanese_text: string;
+    english_text: string;
+  }>;
 };

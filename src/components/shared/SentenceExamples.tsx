@@ -10,7 +10,6 @@ type SentenceExample = {
   start_time: number;
   end_time: number;
   song_title: string;
-  sync_offset: number;
 };
 
 export function formatTime(s: number): string {
@@ -157,7 +156,7 @@ export default function SentenceExamples({ word, excludeSentence }: { word: stri
             </div>
             {isPlaying && (
               <div className="rounded-lg overflow-hidden ml-9">
-                <ClipPlayer videoId={ex.youtube_id} startTime={Number(ex.start_time) + (ex.sync_offset || 0)} endTime={Number(ex.end_time) + (ex.sync_offset || 0)} />
+                <ClipPlayer videoId={ex.youtube_id} startTime={Number(ex.start_time)} endTime={Number(ex.end_time)} />
               </div>
             )}
           </div>

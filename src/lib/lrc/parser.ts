@@ -37,6 +37,7 @@ export function parseLRC(lrcContent: string): ParsedLine[] {
   const result: ParsedLine[] = [];
   for (let i = 0; i < all.length; i++) {
     if (!all[i].text) continue; // skip blank lines as output, but they still inform end_time below
+    if (!/[\u3000-\u9FFF\uF900-\uFAFF]/.test(all[i].text)) continue; // skip non-Japanese lines (e.g. "Ooh")
 
     // Find the next timestamp (blank or lyric) to use as end_time
     const nextTimestamp = i < all.length - 1 ? all[i + 1].timestamp : all[i].timestamp + 4;

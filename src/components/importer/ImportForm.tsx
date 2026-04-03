@@ -204,7 +204,11 @@ export default function ImportForm() {
       </div>
 
       {/* Day Slider */}
-      <DaySlider value={dayCount} onChange={setDayCount} max={maxDays} />
+      <DaySlider value={dayCount} onChange={setDayCount} max={maxDays} lineCount={
+        lrcContent
+          ? lrcContent.split("\n").filter(l => /^\[\d+:\d{2}\.\d{2,3}\]/.test(l.trim()) && /[\u3000-\u9FFF\uF900-\uFAFF]/.test(l)).length
+          : undefined
+      } />
 
       {/* Error */}
       {error && (

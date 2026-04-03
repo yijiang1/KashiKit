@@ -22,8 +22,6 @@ interface Props {
 export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQuiz: initialHasQuiz }: Props) {
   const [lineIndex, setLineIndex] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
-  const [offset, setOffset] = useState(song.sync_offset ?? 0);
-  const [savedOffset, setSavedOffset] = useState(song.sync_offset ?? 0);
   const [trim, setTrim] = useState(lines[0]?.trim ?? 0);
   const [completed, setCompleted] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -45,8 +43,8 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
   const canPrevDay = day > 1;
   const canNextDay = day < song.total_days;
   const lineDuration = currentLine.end_time - currentLine.start_time;
-  const startTime = Math.max(0, currentLine.start_time + offset);
-  const endTime = Math.max(startTime + 0.5, currentLine.end_time + offset - trim);
+  const startTime = currentLine.start_time;
+  const endTime = Math.max(startTime + 0.5, currentLine.end_time - trim);
 
   const handleLineEnd = useCallback(() => {
     setLineIndex((i) => {
@@ -100,7 +98,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
       <YouTubePlayer
         videoId={song.youtube_id}
         startTime={freePlay ? 0 : startTime}
-        endTime={freePlay ? lines[0].start_time + offset : endTime}
+        endTime={freePlay ? lines[0].start_time : endTime}
         isLooping={freePlay ? false : isLooping}
         autoplay={day >= 2}
         onLineEnd={freePlay ? () => { setFreePlay(false); setLineIndex(0); setTrim(lines[0]?.trim ?? 0); } : handleLineEnd}
@@ -136,37 +134,6 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
           </>
         )}
 
-        {isAdmin && <div className="flex-1 flex items-center gap-2">
-          <button type="button" onClick={() => setOffset((v) => Math.round((v - 0.25) * 100) / 100)}
-            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold flex items-center justify-center">−</button>
-          <div className="flex-1 text-center">
-            <span className="text-xs text-gray-400">Sync offset</span>
-            <p className={`text-sm font-mono font-medium ${offset === 0 ? "text-gray-400" : "text-indigo-600"}`}>
-              {offset >= 0 ? "+" : ""}{offset.toFixed(2)}s
-            </p>
-          </div>
-          <button type="button" onClick={() => setOffset((v) => Math.round((v + 0.25) * 100) / 100)}
-            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold flex items-center justify-center">+</button>
-          {isAdmin && offset !== savedOffset && (
-            <button
-              type="button"
-              onClick={async () => {
-                await fetch(`/api/sync-offset/${song.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ sync_offset: offset }),
-                });
-                setSavedOffset(offset);
-              }}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              save
-            </button>
-          )}
-          {offset !== 0 && (
-            <button type="button" onClick={() => setOffset(0)} className="text-xs text-gray-400 hover:text-gray-600">reset</button>
-          )}
-        </div>}
       </div>
 
       {/* Loop trim */}
