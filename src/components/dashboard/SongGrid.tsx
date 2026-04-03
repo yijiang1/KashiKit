@@ -16,6 +16,20 @@ interface Props {
 export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
   const [completedDaysBySong, setCompletedDaysBySong] = useState<Record<string, number>>({});
   const [sortBy, setSortBy] = useState<SortMode>("recent");
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{ generated: number; skipped: number } | null>(null);
+
+  async function handleBackfillQuizzes() {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/backfill-quizzes", { method: "POST" });
+      const data = await res.json();
+      setBackfillResult(data);
+    } finally {
+      setBackfilling(false);
+    }
+  }
 
   useEffect(() => {
     const completedIds = getCompletedLessonIds();
@@ -55,6 +69,22 @@ export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
 
   return (
     <div className="space-y-3">
+      {isAdmin && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBackfillQuizzes}
+            disabled={backfilling}
+            className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-60 transition-colors"
+          >
+            {backfilling ? "Generating quizzes…" : "⚡ Backfill missing quizzes"}
+          </button>
+          {backfillResult && (
+            <span className="text-xs text-gray-500">
+              {backfillResult.generated} generated, {backfillResult.skipped} skipped
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-1 text-sm">
         <span className="text-gray-400 mr-1">Sort:</span>
         {sortOptions.map(({ key, label }) => (
