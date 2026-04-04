@@ -1,0 +1,15 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isAdmin } from "@/lib/admin";
+import { analyzeLine } from "@/lib/ai/pipeline";
+
+export async function POST(req: NextRequest) {
+  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { japaneseText } = await req.json();
+  if (!japaneseText || typeof japaneseText !== "string") {
+    return NextResponse.json({ error: "japaneseText is required" }, { status: 400 });
+  }
+
+  const result = await analyzeLine(japaneseText);
+  return NextResponse.json({ englishText: result.english });
+}

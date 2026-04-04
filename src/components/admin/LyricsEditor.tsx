@@ -30,6 +30,11 @@ export default function LyricsEditor({ songs }: Props) {
   const [regenLessonIds, setRegenLessonIds] = useState<Set<string>>(new Set());
   const [dragSource, setDragSource] = useState<{ lessonId: string; lineId: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ lessonId: string; lineId: string | null; position: "before" | "after" } | null>(null);
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
+  const [pendingVocabMoves, setPendingVocabMoves] = useState<Array<{ targetLineId: string; sourceLineIds: string[] }>>([]);
+  const [retranslatingIds, setRetranslatingIds] = useState<Set<string>>(new Set());
+  const [addingDay, setAddingDay] = useState(false);
+  const [regenAllLoading, setRegenAllLoading] = useState(false);
 
   // Warn on unsaved changes
   useEffect(() => {
@@ -55,6 +60,8 @@ export default function LyricsEditor({ songs }: Props) {
     setAddedIds(new Set());
     setActiveLineId(null);
     setCollapsedLessons(new Set());
+    setSelectedLineIds(new Set());
+    setPendingVocabMoves([]);
     try {
       const res = await fetch(`/api/admin/lyrics-editor/${songId}`);
       if (!res.ok) throw new Error("Failed to load song");
@@ -169,49 +176,49 @@ export default function LyricsEditor({ songs }: Props) {
     setDirty(true);
   }
 
-  // Move a line from one position to another (within or between lessons)
-  function moveLine(
-    srcLessonId: string,
-    srcLineId: string,
+  // Move one or more lines to a new position (within or between lessons)
+  function moveLines(
+    srcLineIds: string[],
     dstLessonId: string,
     dstLineId: string | null,
     position: "before" | "after"
   ) {
-    if (srcLineId === dstLineId) return;
+    if (srcLineIds.length === 0) return;
+    const srcIdSet = new Set(srcLineIds);
     setSongData((prev) => {
       if (!prev) return prev;
 
-      // Find and remove the source line
-      let srcLine: EditorLine | null = null;
+      // Collect moved lines in document order while removing them
+      const movedLines: EditorLine[] = [];
       const lessonsAfterRemove = prev.lessons.map((lesson) => {
-        if (lesson.id !== srcLessonId) return lesson;
-        const idx = lesson.lines.findIndex((l) => l.id === srcLineId);
-        if (idx === -1) return lesson;
-        srcLine = { ...lesson.lines[idx] };
-        return { ...lesson, lines: lesson.lines.filter((l) => l.id !== srcLineId) };
+        const kept: EditorLine[] = [];
+        for (const line of lesson.lines) {
+          if (srcIdSet.has(line.id)) {
+            movedLines.push({
+              ...line,
+              lesson_id: dstLessonId,
+              _status: line._status === "added" ? "added" : "modified",
+            } as EditorLine);
+          } else {
+            kept.push(line);
+          }
+        }
+        return { ...lesson, lines: kept };
       });
 
-      if (!srcLine) return prev;
-
-      // Update lesson_id and mark modified
-      const movedLine: EditorLine = {
-        ...(srcLine as EditorLine),
-        lesson_id: dstLessonId,
-        _status: (srcLine as EditorLine)._status === "added" ? "added" : "modified",
-      };
+      if (movedLines.length === 0) return prev;
 
       // Insert into destination
       const lessonsAfterInsert = lessonsAfterRemove.map((lesson) => {
         if (lesson.id !== dstLessonId) return lesson;
         if (!dstLineId) {
-          // Append to end (empty lesson or no specific target)
-          return { ...lesson, lines: [...lesson.lines, movedLine] };
+          return { ...lesson, lines: [...lesson.lines, ...movedLines] };
         }
         const idx = lesson.lines.findIndex((l) => l.id === dstLineId);
-        if (idx === -1) return { ...lesson, lines: [...lesson.lines, movedLine] };
+        if (idx === -1) return { ...lesson, lines: [...lesson.lines, ...movedLines] };
         const insertIdx = position === "before" ? idx : idx + 1;
         const newLines = [...lesson.lines];
-        newLines.splice(insertIdx, 0, movedLine);
+        newLines.splice(insertIdx, 0, ...movedLines);
         return { ...lesson, lines: newLines };
       });
 
@@ -268,6 +275,7 @@ export default function LyricsEditor({ songs }: Props) {
       updates,
       deletes: deletedIds,
       additions,
+      ...(pendingVocabMoves.length > 0 ? { vocabMoves: pendingVocabMoves } : {}),
     };
 
     try {
@@ -347,6 +355,124 @@ export default function LyricsEditor({ songs }: Props) {
     }
   }
 
+  function toggleSelectLine(lineId: string) {
+    setSelectedLineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) next.delete(lineId);
+      else next.add(lineId);
+      return next;
+    });
+  }
+
+  function mergeSelectedLines() {
+    if (!songData || selectedLineIds.size < 2) return;
+
+    // Collect selected lines in document order
+    const selected: { lessonId: string; line: EditorLine }[] = [];
+    for (const lesson of songData.lessons) {
+      for (const line of lesson.lines) {
+        if (selectedLineIds.has(line.id)) {
+          selected.push({ lessonId: lesson.id, line });
+        }
+      }
+    }
+
+    // Validate: all must be in the same lesson
+    const uniqueLessons = new Set(selected.map((s) => s.lessonId));
+    if (uniqueLessons.size > 1) {
+      alert("Cannot merge lines from different lessons. Select lines within the same Day.");
+      return;
+    }
+
+    const lessonId = selected[0].lessonId;
+    const survivor = selected[0].line;
+    const consumed = selected.slice(1).map((s) => s.line);
+
+    const mergedJapanese = selected.map((s) => s.line.japanese_text).filter(Boolean).join(" ");
+    const mergedEnglish = selected.map((s) => s.line.english_text).filter(Boolean).join(" ");
+    const mergedEndTime = Math.max(...selected.map((s) => s.line.end_time));
+    const mergedVocab = selected.flatMap((s) => s.line.vocabulary);
+
+    // Queue vocab moves for persisted consumed lines that have vocab
+    const sourceLineIdsWithVocab = consumed
+      .filter((line) => !addedIds.has(line.id) && line.vocabulary.length > 0)
+      .map((line) => line.id);
+    if (sourceLineIdsWithVocab.length > 0) {
+      setPendingVocabMoves((prev) => [
+        ...prev,
+        { targetLineId: survivor.id, sourceLineIds: sourceLineIdsWithVocab },
+      ]);
+    }
+
+    // Update songData: modify survivor, remove consumed
+    setSongData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        lessons: prev.lessons.map((lesson) => {
+          if (lesson.id !== lessonId) return lesson;
+          return {
+            ...lesson,
+            lines: lesson.lines
+              .filter((line) => !consumed.some((c) => c.id === line.id))
+              .map((line) => {
+                if (line.id !== survivor.id) return line;
+                return {
+                  ...line,
+                  japanese_text: mergedJapanese,
+                  english_text: mergedEnglish,
+                  end_time: mergedEndTime,
+                  vocabulary: mergedVocab,
+                  _status: line._status === "added" ? "added" : "modified",
+                } as EditorLine;
+              }),
+          };
+        }),
+      };
+    });
+
+    // Track deletions
+    for (const line of consumed) {
+      if (!addedIds.has(line.id)) {
+        setDeletedIds((prev) => [...prev, line.id]);
+      } else {
+        setAddedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(line.id);
+          return next;
+        });
+      }
+    }
+
+    if (consumed.some((c) => c.id === activeLineId)) setActiveLineId(survivor.id);
+    setSelectedLineIds(new Set());
+    setDirty(true);
+  }
+
+  async function retranslateLine(lessonId: string, lineId: string) {
+    const line = songData?.lessons.find((l) => l.id === lessonId)?.lines.find((l) => l.id === lineId);
+    if (!line) return;
+    setRetranslatingIds((prev) => new Set(prev).add(lineId));
+    try {
+      const res = await fetch("/api/admin/retranslate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ japaneseText: line.japanese_text }),
+      });
+      if (!res.ok) { alert("Retranslation failed"); return; }
+      const { englishText } = await res.json();
+      updateLine(lessonId, lineId, "english_text", englishText);
+    } catch {
+      alert("Retranslation failed");
+    } finally {
+      setRetranslatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(lineId);
+        return next;
+      });
+    }
+  }
+
   function toggleLesson(lessonId: string) {
     setCollapsedLessons((prev) => {
       const next = new Set(prev);
@@ -354,6 +480,63 @@ export default function LyricsEditor({ songs }: Props) {
       else next.add(lessonId);
       return next;
     });
+  }
+
+  async function addDay() {
+    if (!selectedSongId) return;
+    setAddingDay(true);
+    try {
+      const res = await fetch(`/api/admin/lyrics-editor/${selectedSongId}/add-day`, { method: "POST" });
+      if (!res.ok) { alert("Failed to add day"); return; }
+      const newLesson = await res.json();
+      setSongData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          song: { ...prev.song, total_days: newLesson.day_number },
+          lessons: [...prev.lessons, { ...newLesson, lines: [] }],
+        };
+      });
+    } catch {
+      alert("Failed to add day");
+    } finally {
+      setAddingDay(false);
+    }
+  }
+
+  async function deleteLesson(lessonId: string) {
+    if (!selectedSongId) return;
+    if (!confirm("Delete this empty day?")) return;
+    try {
+      const res = await fetch(`/api/admin/lyrics-editor/${selectedSongId}/lesson/${lessonId}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json(); alert(d.error || "Failed to delete day"); return; }
+      const { total_days } = await res.json();
+      setSongData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          song: { ...prev.song, total_days },
+          lessons: prev.lessons.filter((l) => l.id !== lessonId),
+        };
+      });
+    } catch {
+      alert("Failed to delete day");
+    }
+  }
+
+  async function regenAllQuizzes() {
+    if (!selectedSongId) return;
+    setRegenAllLoading(true);
+    try {
+      const res = await fetch(`/api/admin/regen-all-quizzes/${selectedSongId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Failed to regenerate quizzes"); return; }
+      alert(`Done: ${data.generated} quizzes regenerated, ${data.skipped} skipped.`);
+    } catch {
+      alert("Failed to regenerate quizzes");
+    } finally {
+      setRegenAllLoading(false);
+    }
   }
 
   return (
@@ -445,6 +628,29 @@ export default function LyricsEditor({ songs }: Props) {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Left: Line editor */}
           <div className="flex-1 min-w-0 space-y-4 order-2 lg:order-1">
+            {/* Merge action bar */}
+            {selectedLineIds.size > 0 && (
+              <div className="sticky top-2 z-10 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 shadow-sm">
+                <span className="text-sm text-indigo-700 font-medium">
+                  {selectedLineIds.size} line{selectedLineIds.size > 1 ? "s" : ""} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={mergeSelectedLines}
+                  disabled={selectedLineIds.size < 2}
+                  className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-40 text-sm font-medium"
+                >
+                  Merge
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLineIds(new Set())}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             {songData.lessons.map((lesson) => (
               <LessonGroup
                 key={lesson.id}
@@ -458,6 +664,11 @@ export default function LyricsEditor({ songs }: Props) {
                 onAddLineBelow={addLineBelow}
                 regenLoading={regenLessonIds.has(lesson.id)}
                 onRegenQuiz={() => regenQuiz(lesson.id)}
+                onDeleteLesson={() => deleteLesson(lesson.id)}
+                selectedLineIds={selectedLineIds}
+                onToggleSelectLine={toggleSelectLine}
+                retranslatingIds={retranslatingIds}
+                onRetranslateLine={(lineId) => retranslateLine(lesson.id, lineId)}
                 dragSource={dragSource}
                 dropTarget={dropTarget}
                 onDragStart={(lineId) => setDragSource({ lessonId: lesson.id, lineId })}
@@ -474,13 +685,40 @@ export default function LyricsEditor({ songs }: Props) {
                 }
                 onDrop={() => {
                   if (dragSource && dropTarget) {
-                    moveLine(dragSource.lessonId, dragSource.lineId, dropTarget.lessonId, dropTarget.lineId, dropTarget.position);
+                    const isMultiDrag = selectedLineIds.has(dragSource.lineId) && selectedLineIds.size > 1;
+                    if (isMultiDrag) {
+                      const allLineIds = songData?.lessons.flatMap((l) => l.lines.map((li) => li.id)) ?? [];
+                      const orderedSelected = allLineIds.filter((id) => selectedLineIds.has(id));
+                      moveLines(orderedSelected, dropTarget.lessonId, dropTarget.lineId, dropTarget.position);
+                    } else {
+                      moveLines([dragSource.lineId], dropTarget.lessonId, dropTarget.lineId, dropTarget.position);
+                    }
                   }
                   setDragSource(null);
                   setDropTarget(null);
                 }}
               />
             ))}
+
+            {/* Add Day + Regen All Quizzes */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={addDay}
+                disabled={addingDay}
+                className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-800 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {addingDay ? "Adding..." : "+ Add Day"}
+              </button>
+              <button
+                type="button"
+                onClick={regenAllQuizzes}
+                disabled={regenAllLoading}
+                className="px-4 py-2 bg-violet-100 hover:bg-violet-200 text-violet-800 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {regenAllLoading ? "Regenerating..." : "Regen All Quizzes"}
+              </button>
+            </div>
 
             {/* Bottom save bar */}
             {dirty && (
@@ -545,6 +783,11 @@ function LessonGroup({
   onAddLineBelow,
   regenLoading,
   onRegenQuiz,
+  onDeleteLesson,
+  selectedLineIds,
+  onToggleSelectLine,
+  retranslatingIds,
+  onRetranslateLine,
   dragSource,
   dropTarget,
   onDragStart,
@@ -563,6 +806,11 @@ function LessonGroup({
   onAddLineBelow: (lessonId: string, afterLineId: string) => void;
   regenLoading: boolean;
   onRegenQuiz: () => void;
+  onDeleteLesson: () => void;
+  selectedLineIds: Set<string>;
+  onToggleSelectLine: (lineId: string) => void;
+  retranslatingIds: Set<string>;
+  onRetranslateLine: (lineId: string) => void;
   dragSource: { lessonId: string; lineId: string } | null;
   dropTarget: { lessonId: string; lineId: string | null; position: "before" | "after" } | null;
   onDragStart: (lineId: string) => void;
@@ -578,6 +826,16 @@ function LessonGroup({
           Day {lesson.day_number}
         </button>
         <div className="flex items-center gap-2">
+          {lesson.lines.length === 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDeleteLesson(); }}
+              className="px-2 py-0.5 text-[10px] bg-red-100 hover:bg-red-200 text-red-700 rounded"
+              title="Delete this empty day"
+            >
+              Delete Day
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRegenQuiz(); }}
@@ -588,7 +846,7 @@ function LessonGroup({
             {regenLoading ? "Generating..." : "Regen Quiz"}
           </button>
           <button type="button" onClick={onToggle} className="text-gray-400 text-xs hover:text-gray-600">
-            {lesson.lines.length} lines {collapsed ? "+" : "-"}
+            {lesson.lines.length} lines · {lesson.lines.reduce((sum, l) => sum + l.vocabulary.length, 0)} vocab {collapsed ? "+" : "-"}
           </button>
         </div>
       </div>
@@ -605,7 +863,14 @@ function LessonGroup({
               onUpdate={(field, value) => onUpdateLine(lesson.id, line.id, field, value)}
               onDelete={() => onDeleteLine(lesson.id, line.id)}
               onAddBelow={() => onAddLineBelow(lesson.id, line.id)}
-              isDragging={dragSource?.lineId === line.id}
+              isSelected={selectedLineIds.has(line.id)}
+              onToggleSelect={() => onToggleSelectLine(line.id)}
+              retranslating={retranslatingIds.has(line.id)}
+              onRetranslate={() => onRetranslateLine(line.id)}
+              isDragging={
+                dragSource?.lineId === line.id ||
+                (dragSource !== null && selectedLineIds.has(dragSource.lineId) && selectedLineIds.has(line.id))
+              }
               dropPosition={
                 dropTarget?.lessonId === lesson.id && dropTarget?.lineId === line.id
                   ? dropTarget.position

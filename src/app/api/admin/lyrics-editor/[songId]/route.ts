@@ -75,7 +75,7 @@ export async function PUT(
 
   const { songId } = await params;
   const body: EditorSavePayload = await req.json();
-  const { updates, deletes, additions } = body;
+  const { updates, deletes, additions, vocabMoves } = body;
 
   const song = await queryOne<Song>("SELECT * FROM songs WHERE id = ?", [songId]);
   if (!song) return NextResponse.json({ error: "Song not found" }, { status: 404 });
@@ -84,6 +84,18 @@ export async function PUT(
 
   // Use a batch transaction for atomicity
   const stmts: Array<{ sql: string; args: InValue[] }> = [];
+
+  // 0. Process vocab moves (before deletes cascade-remove the vocab)
+  if (vocabMoves) {
+    for (const move of vocabMoves) {
+      for (const sourceId of move.sourceLineIds) {
+        stmts.push({
+          sql: "UPDATE vocabulary SET lyric_line_id = ? WHERE lyric_line_id = ?",
+          args: [move.targetLineId, sourceId],
+        });
+      }
+    }
+  }
 
   // 1. Process deletes
   for (const lineId of deletes) {

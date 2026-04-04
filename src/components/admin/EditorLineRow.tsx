@@ -1,7 +1,39 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import EditorTimestampInput from "./EditorTimestampInput";
 import type { EditorLine } from "@/types";
+
+function AutoTextarea({
+  value,
+  onChange,
+  className,
+  placeholder,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  className?: string;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      rows={1}
+      className={className}
+      placeholder={placeholder}
+      style={{ overflow: "hidden", resize: "none" }}
+    />
+  );
+}
 
 interface Props {
   line: EditorLine;
@@ -10,6 +42,12 @@ interface Props {
   onUpdate: (field: keyof EditorLine, value: string | number) => void;
   onDelete: () => void;
   onAddBelow: () => void;
+  // Selection
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  // Retranslate
+  retranslating?: boolean;
+  onRetranslate?: () => void;
   // Drag and drop
   isDragging?: boolean;
   dropPosition?: "before" | "after" | null;
@@ -26,6 +64,10 @@ export default function EditorLineRow({
   onUpdate,
   onDelete,
   onAddBelow,
+  isSelected,
+  onToggleSelect,
+  retranslating,
+  onRetranslate,
   isDragging,
   dropPosition,
   onDragStart,
@@ -61,7 +103,7 @@ export default function EditorLineRow({
           : isAdded
           ? "border-green-300 bg-green-50"
           : "border-gray-200 bg-white"
-      } ${isDragging ? "opacity-30" : ""}`}
+      } ${isDragging ? "opacity-30" : ""} ${isSelected ? "ring-2 ring-indigo-400" : ""}`}
       style={{
         boxShadow:
           dropPosition === "before"
@@ -71,6 +113,16 @@ export default function EditorLineRow({
             : undefined,
       }}
     >
+      {/* Selection checkbox */}
+      <label className="shrink-0 flex items-center cursor-pointer px-0.5">
+        <input
+          type="checkbox"
+          checked={!!isSelected}
+          onChange={() => onToggleSelect?.()}
+          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+      </label>
+
       {/* Drag handle */}
       <div
         className="shrink-0 flex items-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 select-none text-sm px-0.5"
@@ -85,20 +137,29 @@ export default function EditorLineRow({
         <div className="flex gap-2 items-start">
           {/* Text fields */}
           <div className="flex-1 flex flex-col gap-1 min-w-0">
-            <textarea
+            <AutoTextarea
               value={line.japanese_text}
               onChange={(e) => onUpdate("japanese_text", e.target.value)}
-              rows={1}
-              className="w-full text-sm border border-gray-200 rounded px-2 py-1 resize-none focus:border-indigo-400 focus:outline-none font-sans"
+              className="w-full text-sm border border-gray-200 rounded px-2 py-1 focus:border-indigo-400 focus:outline-none font-sans"
               placeholder="Japanese text"
             />
-            <textarea
-              value={line.english_text}
-              onChange={(e) => onUpdate("english_text", e.target.value)}
-              rows={1}
-              className="w-full text-xs border border-gray-200 rounded px-2 py-1 resize-none focus:border-indigo-400 focus:outline-none text-gray-600"
-              placeholder="English translation"
-            />
+            <div className="flex gap-1 items-start">
+              <AutoTextarea
+                value={line.english_text}
+                onChange={(e) => onUpdate("english_text", e.target.value)}
+                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:border-indigo-400 focus:outline-none text-gray-600"
+                placeholder="English translation"
+              />
+              <button
+                type="button"
+                onClick={() => onRetranslate?.()}
+                disabled={retranslating}
+                className="shrink-0 px-1.5 py-1 text-[10px] bg-cyan-100 hover:bg-cyan-200 text-cyan-700 rounded disabled:opacity-50"
+                title="Regenerate English translation with AI"
+              >
+                {retranslating ? "..." : "AI"}
+              </button>
+            </div>
           </div>
 
           {/* Info + actions */}
@@ -139,16 +200,23 @@ export default function EditorLineRow({
           >
             {isActive ? "||" : "\u25B6"}
           </button>
-          <EditorTimestampInput
-            label="Start"
-            value={line.start_time}
-            onChange={(v) => onUpdate("start_time", v)}
-          />
-          <EditorTimestampInput
-            label="End"
-            value={line.end_time}
-            onChange={(v) => onUpdate("end_time", v)}
-          />
+          <div className="flex items-center gap-2">
+            <div className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200">
+              <EditorTimestampInput
+                label="Start"
+                value={line.start_time}
+                onChange={(v) => onUpdate("start_time", v)}
+              />
+            </div>
+            <span className="text-gray-300 text-sm select-none">→</span>
+            <div className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200">
+              <EditorTimestampInput
+                label="End"
+                value={line.end_time}
+                onChange={(v) => onUpdate("end_time", v)}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

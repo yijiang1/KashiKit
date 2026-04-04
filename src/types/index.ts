@@ -92,4 +92,8 @@ export type EditorSavePayload = {
     japanese_text: string;
     english_text: string;
   }>;
+  vocabMoves?: Array<{
+    targetLineId: string;
+    sourceLineIds: string[];
+  }>;
 };
