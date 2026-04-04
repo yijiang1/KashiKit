@@ -77,6 +77,7 @@ export type EditorSongData = {
 export type EditorSavePayload = {
   updates: Array<{
     id: string;
+    lesson_id?: string;
     japanese_text?: string;
     english_text?: string;
     start_time?: number;

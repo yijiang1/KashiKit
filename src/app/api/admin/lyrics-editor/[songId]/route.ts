@@ -101,6 +101,7 @@ export async function PUT(
     if (u.english_text !== undefined) { sets.push("english_text = ?"); args.push(u.english_text); }
     if (u.start_time !== undefined) { sets.push("start_time = ?"); args.push(u.start_time); }
     if (u.end_time !== undefined) { sets.push("end_time = ?"); args.push(u.end_time); }
+    if (u.lesson_id !== undefined) { sets.push("lesson_id = ?"); args.push(u.lesson_id); }
     if (sets.length > 0) {
       stmts.push({
         sql: `UPDATE lyric_lines SET ${sets.join(", ")} WHERE id = ?`,

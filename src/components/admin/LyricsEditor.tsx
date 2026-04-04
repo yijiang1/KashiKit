@@ -27,6 +27,9 @@ export default function LyricsEditor({ songs }: Props) {
   const [globalOffset, setGlobalOffset] = useState<string>("");
   const [artist, setArtist] = useState<string>("");
   const [savingArtist, setSavingArtist] = useState(false);
+  const [regenLessonIds, setRegenLessonIds] = useState<Set<string>>(new Set());
+  const [dragSource, setDragSource] = useState<{ lessonId: string; lineId: string } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ lessonId: string; lineId: string | null; position: "before" | "after" } | null>(null);
 
   // Warn on unsaved changes
   useEffect(() => {
@@ -166,6 +169,57 @@ export default function LyricsEditor({ songs }: Props) {
     setDirty(true);
   }
 
+  // Move a line from one position to another (within or between lessons)
+  function moveLine(
+    srcLessonId: string,
+    srcLineId: string,
+    dstLessonId: string,
+    dstLineId: string | null,
+    position: "before" | "after"
+  ) {
+    if (srcLineId === dstLineId) return;
+    setSongData((prev) => {
+      if (!prev) return prev;
+
+      // Find and remove the source line
+      let srcLine: EditorLine | null = null;
+      const lessonsAfterRemove = prev.lessons.map((lesson) => {
+        if (lesson.id !== srcLessonId) return lesson;
+        const idx = lesson.lines.findIndex((l) => l.id === srcLineId);
+        if (idx === -1) return lesson;
+        srcLine = { ...lesson.lines[idx] };
+        return { ...lesson, lines: lesson.lines.filter((l) => l.id !== srcLineId) };
+      });
+
+      if (!srcLine) return prev;
+
+      // Update lesson_id and mark modified
+      const movedLine: EditorLine = {
+        ...(srcLine as EditorLine),
+        lesson_id: dstLessonId,
+        _status: (srcLine as EditorLine)._status === "added" ? "added" : "modified",
+      };
+
+      // Insert into destination
+      const lessonsAfterInsert = lessonsAfterRemove.map((lesson) => {
+        if (lesson.id !== dstLessonId) return lesson;
+        if (!dstLineId) {
+          // Append to end (empty lesson or no specific target)
+          return { ...lesson, lines: [...lesson.lines, movedLine] };
+        }
+        const idx = lesson.lines.findIndex((l) => l.id === dstLineId);
+        if (idx === -1) return { ...lesson, lines: [...lesson.lines, movedLine] };
+        const insertIdx = position === "before" ? idx : idx + 1;
+        const newLines = [...lesson.lines];
+        newLines.splice(insertIdx, 0, movedLine);
+        return { ...lesson, lines: newLines };
+      });
+
+      return { ...prev, lessons: lessonsAfterInsert };
+    });
+    setDirty(true);
+  }
+
   // Set start/end from YouTube player
   function handleSetStart(time: number) {
     if (!activeLineId || !songData) return;
@@ -201,6 +255,7 @@ export default function LyricsEditor({ songs }: Props) {
       } else if (line._status === "modified") {
         updates.push({
           id: line.id,
+          lesson_id: line.lesson_id,
           japanese_text: line.japanese_text,
           english_text: line.english_text,
           start_time: line.start_time,
@@ -271,6 +326,25 @@ export default function LyricsEditor({ songs }: Props) {
       body: JSON.stringify({ artist }),
     });
     setSavingArtist(false);
+  }
+
+  async function regenQuiz(lessonId: string) {
+    setRegenLessonIds((prev) => new Set(prev).add(lessonId));
+    try {
+      const res = await fetch(`/api/quiz/generate/${lessonId}`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to regenerate quiz");
+      }
+    } catch {
+      alert("Failed to regenerate quiz");
+    } finally {
+      setRegenLessonIds((prev) => {
+        const next = new Set(prev);
+        next.delete(lessonId);
+        return next;
+      });
+    }
   }
 
   function toggleLesson(lessonId: string) {
@@ -382,6 +456,29 @@ export default function LyricsEditor({ songs }: Props) {
                 onUpdateLine={updateLine}
                 onDeleteLine={deleteLine}
                 onAddLineBelow={addLineBelow}
+                regenLoading={regenLessonIds.has(lesson.id)}
+                onRegenQuiz={() => regenQuiz(lesson.id)}
+                dragSource={dragSource}
+                dropTarget={dropTarget}
+                onDragStart={(lineId) => setDragSource({ lessonId: lesson.id, lineId })}
+                onDragEnd={() => { setDragSource(null); setDropTarget(null); }}
+                onDragOver={(lineId, position) =>
+                  setDropTarget((prev) =>
+                    prev?.lessonId === lesson.id && prev?.lineId === lineId && prev?.position === position
+                      ? prev
+                      : { lessonId: lesson.id, lineId, position }
+                  )
+                }
+                onDragOverEmpty={() =>
+                  setDropTarget({ lessonId: lesson.id, lineId: null, position: "after" })
+                }
+                onDrop={() => {
+                  if (dragSource && dropTarget) {
+                    moveLine(dragSource.lessonId, dragSource.lineId, dropTarget.lessonId, dropTarget.lineId, dropTarget.position);
+                  }
+                  setDragSource(null);
+                  setDropTarget(null);
+                }}
               />
             ))}
 
@@ -446,6 +543,15 @@ function LessonGroup({
   onUpdateLine,
   onDeleteLine,
   onAddLineBelow,
+  regenLoading,
+  onRegenQuiz,
+  dragSource,
+  dropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragOverEmpty,
+  onDrop,
 }: {
   lesson: EditorLesson;
   collapsed: boolean;
@@ -455,19 +561,37 @@ function LessonGroup({
   onUpdateLine: (lessonId: string, lineId: string, field: keyof EditorLine, value: string | number) => void;
   onDeleteLine: (lessonId: string, lineId: string) => void;
   onAddLineBelow: (lessonId: string, afterLineId: string) => void;
+  regenLoading: boolean;
+  onRegenQuiz: () => void;
+  dragSource: { lessonId: string; lineId: string } | null;
+  dropTarget: { lessonId: string; lineId: string | null; position: "before" | "after" } | null;
+  onDragStart: (lineId: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (lineId: string, position: "before" | "after") => void;
+  onDragOverEmpty: () => void;
+  onDrop: () => void;
 }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
-      >
-        <span>Day {lesson.day_number}</span>
-        <span className="text-gray-400 text-xs">
-          {lesson.lines.length} lines {collapsed ? "+" : "-"}
-        </span>
-      </button>
+      <div className="flex items-center justify-between px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700">
+        <button type="button" onClick={onToggle} className="hover:text-gray-900">
+          Day {lesson.day_number}
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRegenQuiz(); }}
+            disabled={regenLoading}
+            className="px-2 py-0.5 text-[10px] bg-violet-100 hover:bg-violet-200 text-violet-700 rounded disabled:opacity-50"
+            title="Regenerate quiz for this day"
+          >
+            {regenLoading ? "Generating..." : "Regen Quiz"}
+          </button>
+          <button type="button" onClick={onToggle} className="text-gray-400 text-xs hover:text-gray-600">
+            {lesson.lines.length} lines {collapsed ? "+" : "-"}
+          </button>
+        </div>
+      </div>
       {!collapsed && (
         <div className="p-2 space-y-1.5">
           {lesson.lines.map((line) => (
@@ -481,10 +605,39 @@ function LessonGroup({
               onUpdate={(field, value) => onUpdateLine(lesson.id, line.id, field, value)}
               onDelete={() => onDeleteLine(lesson.id, line.id)}
               onAddBelow={() => onAddLineBelow(lesson.id, line.id)}
+              isDragging={dragSource?.lineId === line.id}
+              dropPosition={
+                dropTarget?.lessonId === lesson.id && dropTarget?.lineId === line.id
+                  ? dropTarget.position
+                  : null
+              }
+              onDragStart={() => onDragStart(line.id)}
+              onDragEnd={onDragEnd}
+              onDragOver={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                onDragOver(line.id, e.clientY < midY ? "before" : "after");
+              }}
+              onDrop={onDrop}
             />
           ))}
           {lesson.lines.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">No lines in this lesson</p>
+            <div
+              className={`text-xs text-gray-400 text-center py-4 rounded border-2 border-dashed ${
+                dragSource ? "border-indigo-300 bg-indigo-50" : "border-transparent"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                onDragOverEmpty();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                onDrop();
+              }}
+            >
+              {dragSource ? "Drop here" : "No lines in this lesson"}
+            </div>
           )}
         </div>
       )}

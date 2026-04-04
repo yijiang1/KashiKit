@@ -16,13 +16,21 @@ export default function NavStats({ isAdmin }: Props) {
     const stats = getStats();
     setStreak(stats.streak);
     setTodayLessons(stats.today);
+  }, []);
 
-    if (isAdmin) {
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchApiCalls = () => {
       fetch("/api/usage")
         .then((r) => r.json())
         .then((d) => setApiCalls(d.todayCalls ?? 0))
         .catch(() => {});
-    }
+    };
+
+    fetchApiCalls();
+    const interval = setInterval(fetchApiCalls, 15000);
+    return () => clearInterval(interval);
   }, [isAdmin]);
 
   if (streak === null) return null;
