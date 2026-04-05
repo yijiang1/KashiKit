@@ -107,10 +107,17 @@ async function ensureInit(): Promise<void> {
         generated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
 
+      CREATE TABLE IF NOT EXISTS jlpt_words (
+        word    TEXT PRIMARY KEY,
+        reading TEXT,
+        level   INTEGER NOT NULL CHECK (level BETWEEN 1 AND 5)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_lessons_song ON lessons(song_id, day_number);
       CREATE INDEX IF NOT EXISTS idx_lyric_lines_lesson ON lyric_lines(lesson_id);
       CREATE INDEX IF NOT EXISTS idx_vocabulary_line ON vocabulary(lyric_line_id);
       CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(created_at);
+      CREATE INDEX IF NOT EXISTS idx_jlpt_words_level ON jlpt_words(level);
     `);
 
     // Migrations for columns added after initial schema
@@ -130,6 +137,12 @@ async function ensureInit(): Promise<void> {
     }
     if (!songColNames.includes("artist")) {
       await db.execute("ALTER TABLE songs ADD COLUMN artist TEXT NOT NULL DEFAULT ''");
+    }
+
+    const vocabCols = await db.execute("PRAGMA table_info(vocabulary)");
+    const vocabColNames = vocabCols.rows.map((r) => r.name as string);
+    if (!vocabColNames.includes("jlpt_level")) {
+      await db.execute("ALTER TABLE vocabulary ADD COLUMN jlpt_level INTEGER DEFAULT NULL");
     }
   })();
   return _initPromise;

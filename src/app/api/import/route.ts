@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { run, uuid } from "@/lib/db";
+import { run, uuid, queryOne } from "@/lib/db";
 import { parseLRC, distributeLines } from "@/lib/lrc/parser";
 import { analyzeAllLines, assessDifficulty } from "@/lib/ai/pipeline";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
@@ -72,13 +72,18 @@ export async function POST(req: NextRequest) {
 
       if (ai.vocabulary.length > 0) {
         for (const v of ai.vocabulary) {
+          const jlptRow = await queryOne<{ level: number }>(
+            "SELECT level FROM jlpt_words WHERE word = ? OR reading = ? LIMIT 1",
+            [v.word ?? "", v.furigana ?? ""]
+          );
           await run(
-            "INSERT INTO vocabulary (id, lyric_line_id, word, furigana, english_meaning, grammar_notes, part_of_speech, example_sentence, example_sentence_english) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO vocabulary (id, lyric_line_id, word, furigana, english_meaning, grammar_notes, part_of_speech, example_sentence, example_sentence_english, jlpt_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
               uuid(), lineId,
               v.word ?? "", v.furigana ?? "", v.english_meaning ?? "",
               v.grammar_notes ?? "", v.part_of_speech ?? "",
               v.example_sentence ?? "", v.example_sentence_english ?? "",
+              jlptRow?.level ?? null,
             ]
           );
           if (v.word) {

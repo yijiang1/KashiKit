@@ -11,6 +11,25 @@ type Entry = {
   grammar_notes: string;
   example_sentence: string;
   example_sentence_english: string;
+  jlpt_level: number | null;
+};
+
+const JLPT_FILTERS = [
+  { label: "All",  value: "",             style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "N5",   value: "5",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "N4",   value: "4",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "N3",   value: "3",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "N2",   value: "2",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "N1",   value: "1",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+  { label: "Unclassified", value: "unclassified", style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
+] as const;
+
+const JLPT_BADGES: Record<number, string> = {
+  5: "border-gray-200 text-gray-500 bg-gray-50",
+  4: "border-gray-200 text-gray-500 bg-gray-50",
+  3: "border-gray-200 text-gray-500 bg-gray-50",
+  2: "border-gray-200 text-gray-500 bg-gray-50",
+  1: "border-gray-200 text-gray-500 bg-gray-50",
 };
 
 const POS_OPTIONS = ["noun", "verb", "adjective", "adverb", "expression", "other"];
@@ -31,6 +50,8 @@ interface Props {
 export default function DictionaryTable({ isAdmin }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [search, setSearch] = useState("");
+  const [jlptFilter, setJlptFilter] = useState("");
+  const [posFilter, setPosFilter] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Entry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,12 +59,16 @@ export default function DictionaryTable({ isAdmin }: Props) {
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
-    const params = search ? `?q=${encodeURIComponent(search)}` : "";
-    const res = await fetch(`/api/dictionary${params}`);
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (jlptFilter) params.set("level", jlptFilter);
+    if (posFilter) params.set("pos", posFilter);
+    const qs = params.toString();
+    const res = await fetch(`/api/dictionary${qs ? `?${qs}` : ""}`);
     const data = await res.json();
     if (Array.isArray(data)) setEntries(data);
     setLoading(false);
-  }, [search]);
+  }, [search, jlptFilter, posFilter]);
 
   useEffect(() => {
     const timer = setTimeout(fetchEntries, 300);
@@ -91,6 +116,38 @@ export default function DictionaryTable({ isAdmin }: Props) {
         <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
+      </div>
+
+      {/* JLPT filter */}
+      <div className="flex flex-wrap gap-1.5">
+        {JLPT_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setJlptFilter(f.value)}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${f.style} ${jlptFilter === f.value ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* POS filter */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setPosFilter("")}
+          className={`text-xs font-medium px-3 py-1 rounded-full border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 transition-colors ${posFilter === "" ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
+        >
+          All
+        </button>
+        {POS_OPTIONS.map((pos) => (
+          <button
+            key={pos}
+            onClick={() => setPosFilter(pos)}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${POS_COLORS[pos] ?? POS_COLORS.other} border-transparent ${posFilter === pos ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
+          >
+            {pos}
+          </button>
+        ))}
       </div>
 
       {/* Count */}
@@ -172,6 +229,11 @@ export default function DictionaryTable({ isAdmin }: Props) {
                             <path d="M8 5v14l11-7z"/>
                           </svg>
                           {entry.word}
+                          {!jlptFilter && entry.jlpt_level != null && (
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${JLPT_BADGES[entry.jlpt_level]}`}>
+                              N{entry.jlpt_level}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-indigo-500">{entry.furigana}</td>

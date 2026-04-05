@@ -3,17 +3,42 @@ import { query, run } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("q") || "";
+  const levelParam = req.nextUrl.searchParams.get("level") || "";
+
+  const conditions: string[] = [];
+  const args: (string | number)[] = [];
 
   if (search) {
     const pattern = `%${search}%`;
-    const data = await query(
-      "SELECT * FROM dictionary WHERE word LIKE ? OR furigana LIKE ? OR english_meaning LIKE ? ORDER BY word ASC",
-      [pattern, pattern, pattern]
-    );
-    return NextResponse.json(data);
+    conditions.push("(d.word LIKE ? OR d.furigana LIKE ? OR d.english_meaning LIKE ?)");
+    args.push(pattern, pattern, pattern);
   }
 
-  const data = await query("SELECT * FROM dictionary ORDER BY word ASC");
+  if (levelParam === "unclassified") {
+    conditions.push("j.word IS NULL");
+  } else if (levelParam) {
+    const n = parseInt(levelParam);
+    if (n >= 1 && n <= 5) {
+      conditions.push("j.level = ?");
+      args.push(n);
+    }
+  }
+
+  const posParam = req.nextUrl.searchParams.get("pos") || "";
+  if (posParam) {
+    conditions.push("d.part_of_speech = ?");
+    args.push(posParam);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const data = await query(
+    `SELECT d.*, j.level AS jlpt_level
+     FROM dictionary d
+     LEFT JOIN jlpt_words j ON j.word = d.word
+     ${where}
+     ORDER BY d.word ASC`,
+    args
+  );
   return NextResponse.json(data);
 }
 

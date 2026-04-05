@@ -18,7 +18,7 @@ KashiKit turns any Japanese song into a structured, multi-day language course. P
 - **Sentence bank** — real example clips from other songs in your library where the same word appears
 - **Text-to-speech** — pronounce any word with one click using the browser's built-in Japanese voice
 - **Vocabulary quiz** — pre-generated fill-in-the-blank quiz at the end of each lesson
-- **Dictionary** — searchable cache of every word you've studied across all songs
+- **Dictionary** — searchable cache of every word you've studied across all songs, with filters by JLPT level (N1–N5) and part of speech
 - **Progress tracking** — lesson progress saved locally in the browser (no account needed)
 - **Auto lyrics fetch** — automatically pulls LRC lyrics from [lrclib.net](https://lrclib.net) when available
 - **API usage tracker** — monitor your daily Gemini API call count against the free tier limit (1,500/day)
@@ -51,6 +51,20 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 By default the app uses a local SQLite file (`lyriclearn.db`) in the project root. To use Turso in production, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in your environment.
+
+### JLPT level data (optional)
+
+To enable JLPT level filters in the dictionary, run the seed script once after setup:
+
+```bash
+npx tsx scripts/seed-jlpt.ts
+```
+
+This fetches ~5,000 words from public JLPT vocabulary lists and stores them in the local database. Only needs to be run once.
+
+JLPT data sourced from:
+- [Bluskyo/JLPT_Vocabulary](https://github.com/Bluskyo/JLPT_Vocabulary) — N1–N5 word list
+- [surajsau/JLPT-Resources](https://github.com/surajsau/JLPT-Resources) — N4/N5 with readings
 
 ### Importing a song
 
