@@ -138,6 +138,9 @@ async function ensureInit(): Promise<void> {
     if (!songColNames.includes("artist")) {
       await db.execute("ALTER TABLE songs ADD COLUMN artist TEXT NOT NULL DEFAULT ''");
     }
+    if (!songColNames.includes("title_en")) {
+      await db.execute("ALTER TABLE songs ADD COLUMN title_en TEXT DEFAULT NULL");
+    }
 
     const vocabCols = await db.execute("PRAGMA table_info(vocabulary)");
     const vocabColNames = vocabCols.rows.map((r) => r.name as string);

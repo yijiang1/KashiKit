@@ -7,6 +7,7 @@ import DaySlider from "./DaySlider";
 export default function ImportForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [titleEn, setTitleEn] = useState("");
   const [artist, setArtist] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [lrcContent, setLrcContent] = useState("");
@@ -79,7 +80,7 @@ export default function ImportForm() {
       const res = await fetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtubeUrl, lrcContent, title, artist, dayCount, translations }),
+        body: JSON.stringify({ youtubeUrl, lrcContent, title, title_en: titleEn || undefined, artist, dayCount, translations }),
       });
 
       const data = await res.json();
@@ -124,6 +125,20 @@ export default function ImportForm() {
             className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-400"
           />
         </div>
+      </div>
+
+      {/* English title (optional) */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-gray-700">
+          English title <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={titleEn}
+          onChange={(e) => setTitleEn(e.target.value)}
+          placeholder="e.g. Racing into the Night"
+          className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-400"
+        />
       </div>
 
       {/* YouTube URL */}

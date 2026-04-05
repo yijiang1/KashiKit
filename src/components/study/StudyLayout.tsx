@@ -78,6 +78,9 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
         </Link>
         <div className="text-center">
           <h1 className="font-semibold text-gray-900 truncate max-w-[200px]">{song.title}</h1>
+          {song.title_en && (
+            <p className="text-xs text-gray-400 truncate max-w-[200px]">{song.title_en}</p>
+          )}
           <p className="text-sm text-indigo-600">Day {day} of {song.total_days}</p>
         </div>
         <div className="flex gap-2">

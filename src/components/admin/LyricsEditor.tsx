@@ -25,8 +25,10 @@ export default function LyricsEditor({ songs }: Props) {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [collapsedLessons, setCollapsedLessons] = useState<Set<string>>(new Set());
   const [globalOffset, setGlobalOffset] = useState<string>("");
+  const [songTitle, setSongTitle] = useState<string>("");
+  const [titleEn, setTitleEn] = useState<string>("");
   const [artist, setArtist] = useState<string>("");
-  const [savingArtist, setSavingArtist] = useState(false);
+  const [savingMeta, setSavingMeta] = useState(false);
   const [regenLessonIds, setRegenLessonIds] = useState<Set<string>>(new Set());
   const [dragSource, setDragSource] = useState<{ lessonId: string; lineId: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ lessonId: string; lineId: string | null; position: "before" | "after" } | null>(null);
@@ -67,6 +69,8 @@ export default function LyricsEditor({ songs }: Props) {
       if (!res.ok) throw new Error("Failed to load song");
       const data: EditorSongData = await res.json();
       setSongData(data);
+      setSongTitle(data.song.title ?? "");
+      setTitleEn(data.song.title_en ?? "");
       setArtist(data.song.artist ?? "");
     } catch (err) {
       alert("Failed to load song data");
@@ -325,15 +329,15 @@ export default function LyricsEditor({ songs }: Props) {
     if (data.author_name) setArtist(data.author_name);
   }
 
-  async function saveArtist() {
+  async function saveMeta() {
     if (!selectedSongId) return;
-    setSavingArtist(true);
+    setSavingMeta(true);
     await fetch(`/api/songs/${selectedSongId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ artist }),
+      body: JSON.stringify({ title: songTitle, title_en: titleEn, artist }),
     });
-    setSavingArtist(false);
+    setSavingMeta(false);
   }
 
   async function regenQuiz(lessonId: string) {
@@ -567,32 +571,54 @@ export default function LyricsEditor({ songs }: Props) {
         )}
       </div>
 
-      {/* Artist field */}
+      {/* Song metadata fields */}
       {songData && (
-        <div className="flex items-center gap-2 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          <span className="text-gray-600 shrink-0">Artist</span>
-          <input
-            type="text"
-            value={artist}
-            onChange={(e) => setArtist(e.target.value)}
-            placeholder="e.g. 米津玄師"
-            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={autoFillArtist}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
-          >
-            Auto-fill
-          </button>
-          <button
-            type="button"
-            onClick={saveArtist}
-            disabled={savingArtist}
-            className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
-          >
-            {savingArtist ? "Saving..." : "Save"}
-          </button>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-600 shrink-0 w-20">Title</span>
+            <input
+              type="text"
+              value={songTitle}
+              onChange={(e) => setSongTitle(e.target.value)}
+              placeholder="e.g. 夜に駆ける"
+              className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-600 shrink-0 w-20">English title</span>
+            <input
+              type="text"
+              value={titleEn}
+              onChange={(e) => setTitleEn(e.target.value)}
+              placeholder="e.g. Racing into the Night (optional)"
+              className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-600 shrink-0 w-20">Artist</span>
+            <input
+              type="text"
+              value={artist}
+              onChange={(e) => setArtist(e.target.value)}
+              placeholder="e.g. 米津玄師"
+              className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={autoFillArtist}
+              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
+            >
+              Auto-fill
+            </button>
+            <button
+              type="button"
+              onClick={saveMeta}
+              disabled={savingMeta}
+              className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+            >
+              {savingMeta ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
       )}
 

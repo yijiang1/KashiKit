@@ -1,6 +1,7 @@
 export type Song = {
   id: string;
   title: string;
+  title_en: string | null;
   artist: string;
   youtube_id: string;
   total_days: number;
@@ -55,6 +56,7 @@ export type ImportPayload = {
   youtubeUrl: string;
   lrcContent: string;
   title: string;
+  title_en?: string;
   artist: string;
   dayCount: number;
   translations?: string[]; // parallel to LRC lines, from YouTube EN captions

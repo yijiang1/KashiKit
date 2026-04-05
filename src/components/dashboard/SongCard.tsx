@@ -52,7 +52,8 @@ export default function SongCard({ song, completedDays, isAdmin }: Props) {
         </div>
         <div className="p-4">
           <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
-          <p className="text-xs text-gray-500 truncate">{song.artist}</p>
+          <p className="text-xs text-gray-400 italic truncate">{song.title_en || "\u00A0"}</p>
+          <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{song.artist}</p>
           <div className="mt-1" onClick={isAdmin ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}>
             <StarRating
               value={difficulty}

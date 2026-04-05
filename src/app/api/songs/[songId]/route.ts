@@ -6,8 +6,14 @@ export async function PATCH(
   { params }: { params: Promise<{ songId: string }> }
 ) {
   const { songId } = await params;
-  const { artist } = await req.json();
-  await run("UPDATE songs SET artist = ? WHERE id = ?", [artist, songId]);
+  const body = await req.json();
+  const fields: string[] = [];
+  const values: (string | null)[] = [];
+  if ("title" in body)    { fields.push("title = ?");    values.push(body.title ?? ""); }
+  if ("title_en" in body) { fields.push("title_en = ?"); values.push(body.title_en || null); }
+  if ("artist" in body)   { fields.push("artist = ?");   values.push(body.artist ?? ""); }
+  if (fields.length === 0) return NextResponse.json({ success: true });
+  await run(`UPDATE songs SET ${fields.join(", ")} WHERE id = ?`, [...values, songId]);
   return NextResponse.json({ success: true });
 }
 
