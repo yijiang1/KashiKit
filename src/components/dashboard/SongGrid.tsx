@@ -5,17 +5,19 @@ import type { Song } from "@/types";
 import SongCard from "./SongCard";
 import { getCompletedLessonIds } from "@/lib/progress";
 
-type SortMode = "recent" | "easiest" | "hardest";
+type SortMode = "newest" | "oldest" | "easiest" | "hardest";
 
 interface Props {
   songs: Song[];
   lessonsBySong: Record<string, string[]>;
   isAdmin: boolean;
+  dbAvailable?: boolean;
 }
 
-export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
+export default function SongGrid({ songs, lessonsBySong, isAdmin, dbAvailable = true }: Props) {
   const [completedDaysBySong, setCompletedDaysBySong] = useState<Record<string, number>>({});
-  const [sortBy, setSortBy] = useState<SortMode>("recent");
+  const [sortBy, setSortBy] = useState<SortMode>("newest");
+  const [artistFilter, setArtistFilter] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{ generated: number; skipped: number } | null>(null);
 
@@ -40,16 +42,35 @@ export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
     setCompletedDaysBySong(result);
   }, [lessonsBySong]);
 
+  const artists = useMemo(
+    () => Array.from(new Set(songs.map((s) => s.artist))).sort(),
+    [songs]
+  );
+
   const sortedSongs = useMemo(() => {
-    if (sortBy === "recent") return songs;
-    return [...songs].sort((a, b) => {
-      // Unrated songs always go to the end
-      if (a.difficulty === null && b.difficulty === null) return 0;
-      if (a.difficulty === null) return 1;
-      if (b.difficulty === null) return -1;
-      return sortBy === "easiest" ? a.difficulty - b.difficulty : b.difficulty - a.difficulty;
-    });
-  }, [songs, sortBy]);
+    const base = artistFilter ? songs.filter((s) => s.artist === artistFilter) : songs;
+    if (sortBy === "oldest") return [...base].reverse();
+    if (sortBy === "easiest" || sortBy === "hardest") {
+      return [...base].sort((a, b) => {
+        // Unrated songs always go to the end
+        if (a.difficulty === null && b.difficulty === null) return 0;
+        if (a.difficulty === null) return 1;
+        if (b.difficulty === null) return -1;
+        return sortBy === "easiest" ? a.difficulty - b.difficulty : b.difficulty - a.difficulty;
+      });
+    }
+    return base; // newest
+  }, [songs, sortBy, artistFilter]);
+
+  if (!dbAvailable) {
+    return (
+      <div className="text-center py-20 text-gray-400">
+        <p className="text-4xl mb-4">⚠️</p>
+        <p className="text-lg font-medium">Database not available</p>
+        <p className="text-sm mt-1">Check your internet connection or database credentials</p>
+      </div>
+    );
+  }
 
   if (songs.length === 0) {
     return (
@@ -61,11 +82,21 @@ export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
     );
   }
 
-  const sortOptions: { key: SortMode; label: string }[] = [
-    { key: "recent", label: "Recent" },
-    { key: "easiest", label: "Easiest first" },
-    { key: "hardest", label: "Hardest first" },
-  ];
+  function cycleDate() {
+    if (sortBy === "newest") setSortBy("oldest");
+    else setSortBy("newest");
+  }
+
+  function cycleDifficulty() {
+    if (sortBy === "easiest") setSortBy("hardest");
+    else if (sortBy === "hardest") setSortBy("newest");
+    else setSortBy("easiest");
+  }
+
+  const dateLabel = sortBy === "oldest" ? "Date ↑" : "Date ↓";
+  const dateActive = sortBy === "newest" || sortBy === "oldest";
+  const difficultyLabel = sortBy === "easiest" ? "Difficulty ↑" : sortBy === "hardest" ? "Difficulty ↓" : "Difficulty";
+  const difficultyActive = sortBy === "easiest" || sortBy === "hardest";
 
   return (
     <div className="space-y-3">
@@ -85,19 +116,52 @@ export default function SongGrid({ songs, lessonsBySong, isAdmin }: Props) {
           )}
         </div>
       )}
-      <div className="flex items-center gap-1 text-sm">
+      <div className="flex items-center gap-1 text-sm flex-wrap">
         <span className="text-gray-400 mr-1">Sort:</span>
-        {sortOptions.map(({ key, label }) => (
+        <button
+          onClick={cycleDate}
+          className={`px-2 py-0.5 rounded transition-colors ${
+            dateActive
+              ? "text-indigo-600 font-medium bg-indigo-50"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          {dateLabel}
+        </button>
+        <button
+          onClick={cycleDifficulty}
+          className={`px-2 py-0.5 rounded transition-colors ${
+            difficultyActive
+              ? "text-indigo-600 font-medium bg-indigo-50"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          {difficultyLabel}
+        </button>
+      </div>
+      <div className="flex items-center gap-1 text-sm flex-wrap">
+        <span className="text-gray-400 mr-1">Artist:</span>
+        <button
+          onClick={() => setArtistFilter(null)}
+          className={`px-2 py-0.5 rounded transition-colors ${
+            artistFilter === null
+              ? "text-indigo-600 font-medium bg-indigo-50"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          All
+        </button>
+        {artists.map((artist) => (
           <button
-            key={key}
-            onClick={() => setSortBy(key)}
+            key={artist}
+            onClick={() => setArtistFilter(artistFilter === artist ? null : artist)}
             className={`px-2 py-0.5 rounded transition-colors ${
-              sortBy === key
+              artistFilter === artist
                 ? "text-indigo-600 font-medium bg-indigo-50"
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {label}
+            {artist}
           </button>
         ))}
       </div>

@@ -12,6 +12,16 @@ body {
   color: var(--foreground);
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fadeUp 0.4s ease forwards;
+}
+
 ruby rt {
   font-size: 0.55em;
   color: #6366f1;

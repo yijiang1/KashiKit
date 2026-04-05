@@ -169,3 +169,12 @@ export async function run(sql: string, args: InValue[] = []): Promise<void> {
   const db = await getDb();
   await db.execute({ sql, args });
 }
+
+export async function isDbAvailable(): Promise<boolean> {
+  try {
+    await getClient().execute("SELECT 1");
+    return true;
+  } catch {
+    return false;
+  }
+}
