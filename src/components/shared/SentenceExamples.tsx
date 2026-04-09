@@ -44,7 +44,7 @@ export function Highlight({ text, word }: { text: string; word: string }) {
   );
 }
 
-function ClipPlayer({ videoId, startTime, endTime }: { videoId: string; startTime: number; endTime: number }) {
+export function ClipPlayer({ videoId, startTime, endTime }: { videoId: string; startTime: number; endTime: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
