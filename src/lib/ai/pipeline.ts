@@ -89,15 +89,26 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
 }
 
 const DIFFICULTY_PROMPT = `You are a Japanese language difficulty assessor for language learners.
-Given these song lyrics and their extracted vocabulary, rate the overall difficulty on a scale of 1-5:
-1 = Beginner (simple everyday vocab, basic grammar like です/ます, mostly hiragana)
-2 = Elementary (common words, some kanji, basic conjugations and particles)
-3 = Intermediate (varied vocab, compound verbs, conversational grammar, moderate kanji)
-4 = Upper-intermediate (abstract/literary vocab, complex grammar, fast pacing, many kanji)
-5 = Advanced (poetic/archaic language, rare kanji, dense grammar, cultural references)
+Given these song lyrics and their extracted vocabulary, rate the overall difficulty on a scale of 1-5.
+Consider BOTH dimensions equally:
 
+Vocabulary/comprehension difficulty:
+1 = Simple everyday words, basic grammar (です/ます), mostly hiragana
+2 = Common words, some kanji, basic conjugations and particles
+3 = Varied vocab, compound verbs, conversational grammar, moderate kanji
+4 = Abstract/literary vocab, complex grammar, many kanji
+5 = Poetic/archaic language, rare kanji, dense grammar, cultural references
+
+Singing difficulty (how hard it is to actually sing along):
+1 = Slow tempo, clear pronunciation, simple syllable patterns
+2 = Moderate pace, mostly straightforward phonetics
+3 = Faster pacing or some tricky consonant clusters and rhythm changes
+4 = Fast delivery, rapid-fire syllables, complex rhythm, pitch accent matters
+5 = Extremely fast, tongue-twisting, unusual pitch patterns or vocal acrobatics
+
+Return the average of both dimensions, rounded to the nearest integer.
 Return ONLY valid JSON (no markdown, no code fences):
-{"difficulty": <1-5>, "reason": "<one sentence explanation>"}`;
+{"difficulty": <1-5>, "reason": "<one sentence covering both vocab and singing difficulty>"}`;
 
 export async function assessDifficulty(
   lyrics: string[],

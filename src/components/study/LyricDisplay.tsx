@@ -61,7 +61,6 @@ function buildSegments(japaneseText: string, vocabulary: Vocabulary[]): Segment[
 
 export default function LyricDisplay({ line }: Props) {
   const [selected, setSelected] = useState<Vocabulary | null>(null);
-  const [showTranslation, setShowTranslation] = useState(true);
   const segments = buildSegments(line.japanese_text, line.vocabulary);
 
   // Reset selection when line changes
@@ -95,6 +94,9 @@ export default function LyricDisplay({ line }: Props) {
           );
         })}
       </p>
+
+      {/* Translation */}
+      <p className="text-lg text-gray-600 italic">{line.english_text || "—"}</p>
 
       {/* POS legend */}
       {line.vocabulary.length > 0 && (
@@ -165,17 +167,6 @@ export default function LyricDisplay({ line }: Props) {
         </div>
       )}
 
-      {/* Translation */}
-      <button
-        onClick={() => setShowTranslation((v) => !v)}
-        className="text-sm text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition-colors"
-      >
-        {showTranslation ? "Hide translation" : "Show translation"}
-      </button>
-
-      {showTranslation && (
-        <p className="text-lg text-gray-600 italic">{line.english_text || "—"}</p>
-      )}
     </div>
   );
 }
