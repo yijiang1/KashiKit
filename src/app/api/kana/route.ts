@@ -37,11 +37,13 @@ export async function GET(req: NextRequest) {
         [`${kana}%`]
       ),
       query<SentenceRow>(
-        `SELECT japanese_text, english_text, song_title, youtube_id, start_time, end_time
-         FROM sentence_bank
-         WHERE japanese_text LIKE ?
-         ORDER BY RANDOM()
-         LIMIT 8`,
+        `SELECT ll.japanese_text, ll.english_text, s.title as song_title,
+                s.youtube_id, ll.start_time, ll.end_time
+         FROM lyric_lines ll
+         JOIN lessons l ON ll.lesson_id = l.id
+         JOIN songs s ON l.song_id = s.id
+         WHERE ll.japanese_text LIKE ?
+         ORDER BY RANDOM()`,
         [`%${kana}%`]
       ),
     ]);
