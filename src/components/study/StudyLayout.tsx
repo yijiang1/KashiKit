@@ -6,7 +6,7 @@ import type { LyricLine, Song } from "@/types";
 import dynamic from "next/dynamic";
 import LyricDisplay from "./LyricDisplay";
 import Quiz from "./Quiz";
-import { markComplete, isLessonComplete } from "@/lib/progress";
+import { markComplete, markIncomplete, isLessonComplete } from "@/lib/progress";
 
 const YouTubePlayer = dynamic(() => import("./YouTubePlayer"), { ssr: false });
 
@@ -57,6 +57,11 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
   function handleComplete() {
     markComplete(lessonId);
     setCompleted(true);
+  }
+
+  function openQuiz() {
+    window.dispatchEvent(new CustomEvent("yt-play", { detail: "quiz" }));
+    setShowQuiz(true);
   }
 
   async function handleGenerateQuiz() {
@@ -226,12 +231,18 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
         )}
         {completed ? (
           <>
-            <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-50 text-green-700 font-medium">
-              <span>✓</span> Day {day} completed
+            <div className="flex items-center justify-between gap-2 py-3 px-4 rounded-xl bg-green-50 text-green-700 font-medium">
+              <span className="flex items-center gap-2"><span>✓</span> Day {day} completed</span>
+              <button
+                onClick={() => { markIncomplete(lessonId); setCompleted(false); }}
+                className="text-xs text-green-600 hover:text-green-800 underline font-normal"
+              >
+                Reset
+              </button>
             </div>
             {!showQuiz && hasQuiz && (
               <button
-                onClick={() => setShowQuiz(true)}
+                onClick={openQuiz}
                 className="w-full py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
               >
                 Take Quiz
@@ -242,7 +253,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
           <div className="flex gap-3">
             {hasQuiz && (
               <button
-                onClick={() => setShowQuiz(true)}
+                onClick={openQuiz}
                 className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
               >
                 Take Quiz

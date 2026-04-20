@@ -30,6 +30,12 @@ export function markComplete(lessonId: string) {
   }
 }
 
+export function markIncomplete(lessonId: string) {
+  const store = load();
+  delete store.completions[lessonId];
+  save(store);
+}
+
 export function isLessonComplete(lessonId: string): boolean {
   return !!load().completions[lessonId];
 }

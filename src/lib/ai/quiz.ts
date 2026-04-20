@@ -62,5 +62,35 @@ The "correct" field is the 0-based index of the correct option.`;
     });
   }
 
-  return JSON.parse(cleaned) as QuizQuestion[];
+  const questions = JSON.parse(cleaned) as QuizQuestion[];
+  return validateAndFix(questions);
+}
+
+function validateAndFix(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.map((q) => {
+    const n = q.options.length;
+
+    // Fix out-of-bounds index
+    if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct >= n) {
+      const inferred = inferFromExplanation(q);
+      return { ...q, correct: inferred ?? 0 };
+    }
+
+    // If the stated correct option doesn't appear in the explanation, find one that does
+    const explanation = q.explanation.toLowerCase();
+    if (!explanation.includes(q.options[q.correct].toLowerCase())) {
+      const inferred = inferFromExplanation(q);
+      if (inferred !== null && inferred !== q.correct) {
+        return { ...q, correct: inferred };
+      }
+    }
+
+    return q;
+  });
+}
+
+function inferFromExplanation(q: QuizQuestion): number | null {
+  const explanation = q.explanation.toLowerCase();
+  const idx = q.options.findIndex((opt) => explanation.includes(opt.toLowerCase()));
+  return idx !== -1 ? idx : null;
 }
