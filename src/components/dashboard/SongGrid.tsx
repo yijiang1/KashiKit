@@ -186,6 +186,8 @@ export default function SongGrid({ songs, lessonsBySong, isAdmin, dbAvailable = 
             key={song.id}
             song={song}
             completedDays={completedDaysBySong[song.id] ?? 0}
+            lessonIds={lessonsBySong[song.id] ?? []}
+            onReset={() => setCompletedDaysBySong((prev) => ({ ...prev, [song.id]: 0 }))}
             isAdmin={isAdmin}
           />
         ))}

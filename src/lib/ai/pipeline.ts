@@ -115,6 +115,14 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
 
     const parsed = JSON.parse(cleaned) as AILineResult;
 
+    // Sanitize vocabulary: drop entries with romaji furigana or words that
+    // don't appear in the lyric text (e.g. dictionary form instead of conjugated).
+    parsed.vocabulary = (parsed.vocabulary ?? []).filter((v) => {
+      if (!v.word || !japaneseText.includes(v.word)) return false;
+      if (v.furigana && /[a-zA-Z]/.test(v.furigana)) return false;
+      return true;
+    });
+
     // Replace LLM vocab with cached dictionary entries where available,
     // and cache any new words
     const words = (parsed.vocabulary ?? []).map((v) => v.word).filter(Boolean);

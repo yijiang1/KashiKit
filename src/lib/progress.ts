@@ -44,6 +44,14 @@ export function getCompletedLessonIds(): Set<string> {
   return new Set(Object.keys(load().completions));
 }
 
+export function resetSong(lessonIds: string[]) {
+  const store = load();
+  for (const id of lessonIds) {
+    delete store.completions[id];
+  }
+  save(store);
+}
+
 export function getStats(): { streak: number; today: number; total: number } {
   const store = load();
   const dates = Object.values(store.completions);

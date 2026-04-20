@@ -6,7 +6,7 @@ import type { LyricLine, Song } from "@/types";
 import dynamic from "next/dynamic";
 import LyricDisplay from "./LyricDisplay";
 import Quiz from "./Quiz";
-import { markComplete, markIncomplete, isLessonComplete } from "@/lib/progress";
+import { markComplete, isLessonComplete } from "@/lib/progress";
 
 const YouTubePlayer = dynamic(() => import("./YouTubePlayer"), { ssr: false });
 
@@ -231,14 +231,8 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
         )}
         {completed ? (
           <>
-            <div className="flex items-center justify-between gap-2 py-3 px-4 rounded-xl bg-green-50 text-green-700 font-medium">
+            <div className="py-3 px-4 rounded-xl bg-green-50 text-green-700 font-medium">
               <span className="flex items-center gap-2"><span>✓</span> Day {day} completed</span>
-              <button
-                onClick={() => { markIncomplete(lessonId); setCompleted(false); }}
-                className="text-xs text-green-600 hover:text-green-800 underline font-normal"
-              >
-                Reset
-              </button>
             </div>
             {!showQuiz && hasQuiz && (
               <button

@@ -6,14 +6,17 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { Song } from "@/types";
 import StarRating from "@/components/shared/StarRating";
+import { resetSong } from "@/lib/progress";
 
 interface Props {
   song: Song;
   completedDays: number;
+  lessonIds: string[];
+  onReset: () => void;
   isAdmin: boolean;
 }
 
-export default function SongCard({ song, completedDays, isAdmin }: Props) {
+export default function SongCard({ song, completedDays, lessonIds, onReset, isAdmin }: Props) {
   const router = useRouter();
   const thumbnailUrl = `https://img.youtube.com/vi/${song.youtube_id}/mqdefault.jpg`;
   const nextDay = Math.min(completedDays + 1, song.total_days);
@@ -74,6 +77,19 @@ export default function SongCard({ song, completedDays, isAdmin }: Props) {
               />
             ))}
           </div>
+          {completedDays > 0 && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resetSong(lessonIds);
+                onReset();
+              }}
+              className="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors"
+            >
+              Reset progress
+            </button>
+          )}
         </div>
       </Link>
 
