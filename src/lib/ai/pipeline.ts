@@ -9,35 +9,96 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 const VOCAB_SCHEMA = `
     {
-      "word": "the Japanese word/phrase (kanji or kana as it appears)",
+      "word": "the exact word/phrase as it appears in the lyric",
+      "dictionary_form": "base dictionary form (e.g. 走る for 走って)",
       "furigana": "reading in hiragana",
-      "english_meaning": "dictionary meaning",
-      "part_of_speech": "one of: noun, verb, adjective, adverb, expression, other",
-      "grammar_notes": "brief grammar note if relevant, empty string if not",
-      "example_sentence": "a simple example sentence in Japanese using this word",
-      "example_sentence_english": "English translation of the example sentence"
+      "english_meaning": "literal English meaning",
+      "part_of_speech": "one of: Noun, Verb, Adjective, Adverb, Expression, Other",
+      "jlpt_level": "N5, N4, N3, N2, N1, or None",
+      "example_sentence": "a simple Japanese example sentence using this word",
+      "example_sentence_english": "literal English translation of the example"
     }`;
 
-const SYSTEM_PROMPT = `You are a Japanese language teacher. Analyze the following Japanese song lyric line.
+const GRAMMAR_SCHEMA = `
+    {
+      "structure": "the grammar pattern (e.g. 〜てしまう, 〜なきゃ)",
+      "explanation": "one sentence on how it functions in this line",
+      "example_sentence_jp": "a simple Japanese example using this grammar",
+      "example_sentence_en": "literal English translation of the example"
+    }`;
+
+const SYSTEM_PROMPT = `You are a Japanese language teacher analyzing song lyrics for a language study app.
+
+TRANSLATION RULES — be strictly LITERAL, not poetic:
+- Map each Japanese word to English as directly as possible
+- Do NOT omit words because they sound awkward in English
+- Do NOT add words or metaphors not present in the original Japanese
+- If the line is grammatically incomplete (e.g. ends in て-form), leave the English similarly open-ended
+- The goal is for learners to map English words 1-to-1 with Japanese vocabulary
+- Also include a natural_translation for smoother reading context
+
 Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 {
-  "english": "<translate the Japanese line into natural English here>",
-  "vocabulary": [${VOCAB_SCHEMA}]
+  "line_analysis": {
+    "japanese_line": "the full Japanese text as provided",
+    "furigana_line": "the line with inline furigana (e.g. 漢[かん]字[じ])",
+    "literal_translation": "word-for-word English, even if awkward",
+    "natural_translation": "smooth, natural English for context"
+  },
+  "vocabulary": [${VOCAB_SCHEMA}],
+  "grammar_points": [${GRAMMAR_SCHEMA}]
 }
-IMPORTANT: The "english" field MUST contain an actual English translation of the Japanese text, not a placeholder.
 
-For "vocabulary", extract EVERY content word in the line — be exhaustive:
-- Include ALL nouns, verbs (dictionary form), i-adjectives, na-adjectives, adverbs, and set expressions
+For vocabulary, extract EVERY content word exhaustively:
+- Include ALL nouns, verbs (conjugated form as it appears), adjectives, adverbs, and set expressions
 - Include compound words and compound verbs as a single entry (e.g. 歩き回る, 行き止まり)
-- Include common words too — 空, 心, 夜, 好き, 思う, etc. are all worth explaining
-- Use the word EXACTLY as it appears in the lyric (not the dictionary form), so it can be highlighted
-- Only skip: bare grammatical particles (は が を に で へ と から まで より も), the copula alone (だ です), and standalone sentence-final particles (よ ね な)
-- When in doubt, include the word`;
+- Include common words too — 空, 心, 夜, 好き, 思う are all worth explaining
+- Use the word EXACTLY as it appears in the lyric so it can be highlighted
+- Only skip: bare grammatical particles (は が を に で へ と から まで より も), the copula alone (だ です), standalone sentence-final particles (よ ね な)
+- When in doubt, include the word
+
+For grammar_points, identify notable grammatical structures:
+- Verb conjugations and auxiliaries: ~てしまう, ~ている, ~てみる, ~ておく
+- Conditional/hypothetical patterns: ~ば, ~たら, ~なら
+- Colloquial contractions: ~なきゃ, ~ちゃう, ~てく
+- Skip trivial constructions like plain ます/です`;
+
+const EMPTY_RESULT: AILineResult = {
+  line_analysis: { japanese_line: "", furigana_line: "", literal_translation: "", natural_translation: "" },
+  vocabulary: [],
+  grammar_points: [],
+};
+
+function isRateLimit(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
+  }
+  return false;
+}
+
+async function generateWithRetry(prompt: string, maxRetries = 3) {
+  let delay = 1000;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await model.generateContent(prompt);
+    } catch (err) {
+      if (isRateLimit(err) && attempt < maxRetries) {
+        console.warn(`Gemini rate limit hit — retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, delay));
+        delay *= 2;
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error("Unreachable");
+}
 
 export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
   try {
-    const prompt = `${SYSTEM_PROMPT}\n\n${japaneseText}`;
-    const result = await model.generateContent(prompt);
+    const prompt = `${SYSTEM_PROMPT}\n\nInput Lyric: ${japaneseText}`;
+    const result = await generateWithRetry(prompt);
     const text = result.response.text();
     const cleaned = text.replace(/^```json?\n?/i, "").replace(/\n?```$/i, "").trim();
 
@@ -56,11 +117,11 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
 
     // Replace LLM vocab with cached dictionary entries where available,
     // and cache any new words
-    const words = parsed.vocabulary.map((v) => v.word).filter(Boolean);
+    const words = (parsed.vocabulary ?? []).map((v) => v.word).filter(Boolean);
     const cached = await lookupWords(words);
 
     const newWords: DictEntry[] = [];
-    parsed.vocabulary = parsed.vocabulary.map((v) => {
+    parsed.vocabulary = (parsed.vocabulary ?? []).map((v) => {
       const hit = cached.get(v.word);
       if (hit) {
         return { ...v, ...hit };
@@ -71,7 +132,7 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
         furigana: v.furigana ?? "",
         english_meaning: v.english_meaning ?? "",
         part_of_speech: v.part_of_speech ?? "",
-        grammar_notes: v.grammar_notes ?? "",
+        grammar_notes: "",
         example_sentence: v.example_sentence ?? "",
         example_sentence_english: v.example_sentence_english ?? "",
       });
@@ -82,9 +143,10 @@ export async function analyzeLine(japaneseText: string): Promise<AILineResult> {
       await cacheWords(newWords);
     }
 
+    parsed.grammar_points = parsed.grammar_points ?? [];
     return parsed;
   } catch {
-    return { english: "", vocabulary: [] };
+    return EMPTY_RESULT;
   }
 }
 

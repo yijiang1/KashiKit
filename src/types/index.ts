@@ -28,6 +28,15 @@ export type Vocabulary = {
   example_sentence_english: string;
 };
 
+export type GrammarPoint = {
+  id: string;
+  lyric_line_id: string;
+  structure: string;
+  explanation: string;
+  example_sentence_jp: string;
+  example_sentence_en: string;
+};
+
 export type LyricLine = {
   id: string;
   lesson_id: string;
@@ -37,18 +46,32 @@ export type LyricLine = {
   english_text: string;
   trim: number;
   vocabulary: Vocabulary[];
+  grammar_points?: GrammarPoint[];
 };
 
 export type AILineResult = {
-  english: string;
+  line_analysis: {
+    japanese_line: string;
+    furigana_line: string;
+    literal_translation: string;
+    natural_translation: string;
+  };
   vocabulary: Array<{
     word: string;
+    dictionary_form: string;
     furigana: string;
     english_meaning: string;
-    grammar_notes: string;
     part_of_speech: string;
+    jlpt_level: string;
+    grammar_notes: string; // kept for dictionary cache compat; empty in new analyses
     example_sentence: string;
     example_sentence_english: string;
+  }>;
+  grammar_points: Array<{
+    structure: string;
+    explanation: string;
+    example_sentence_jp: string;
+    example_sentence_en: string;
   }>;
 };
 

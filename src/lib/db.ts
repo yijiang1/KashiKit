@@ -113,9 +113,19 @@ async function ensureInit(): Promise<void> {
         level   INTEGER NOT NULL CHECK (level BETWEEN 1 AND 5)
       );
 
+      CREATE TABLE IF NOT EXISTS grammar_points (
+        id                  TEXT PRIMARY KEY,
+        lyric_line_id       TEXT NOT NULL REFERENCES lyric_lines(id) ON DELETE CASCADE,
+        structure           TEXT NOT NULL,
+        explanation         TEXT NOT NULL DEFAULT '',
+        example_sentence_jp TEXT NOT NULL DEFAULT '',
+        example_sentence_en TEXT NOT NULL DEFAULT ''
+      );
+
       CREATE INDEX IF NOT EXISTS idx_lessons_song ON lessons(song_id, day_number);
       CREATE INDEX IF NOT EXISTS idx_lyric_lines_lesson ON lyric_lines(lesson_id);
       CREATE INDEX IF NOT EXISTS idx_vocabulary_line ON vocabulary(lyric_line_id);
+      CREATE INDEX IF NOT EXISTS idx_grammar_points_line ON grammar_points(lyric_line_id);
       CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(created_at);
       CREATE INDEX IF NOT EXISTS idx_jlpt_words_level ON jlpt_words(level);
     `);

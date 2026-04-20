@@ -11,5 +11,5 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await analyzeLine(japaneseText);
-  return NextResponse.json({ englishText: result.english });
+  return NextResponse.json({ englishText: result.line_analysis?.literal_translation ?? "" });
 }

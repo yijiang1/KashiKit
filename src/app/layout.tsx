@@ -38,6 +38,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <a href="/kana" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Kana
               </a>
+              <a href="/grammar" className="text-gray-600 hover:text-gray-900 transition-colors">
+                Grammar
+              </a>
               {isAdmin && (
                 <>
                   <a href="/sentence-bank" className="text-gray-600 hover:text-gray-900 transition-colors">

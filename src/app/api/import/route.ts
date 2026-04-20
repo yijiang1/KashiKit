@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
       const lineId = uuid();
       await run(
         "INSERT INTO lyric_lines (id, lesson_id, start_time, end_time, japanese_text, english_text) VALUES (?, ?, ?, ?, ?, ?)",
-        [lineId, lessonId, line.start_time, line.end_time, line.japanese_text, ai.english || ""]
+        [lineId, lessonId, line.start_time, line.end_time, line.japanese_text, ai.line_analysis?.literal_translation || ""]
       );
 
-      lyricsForQuiz.push(`${line.japanese_text} → ${ai.english || ""}`);
+      lyricsForQuiz.push(`${line.japanese_text} → ${ai.line_analysis?.literal_translation || ""}`);
       allLyrics.push(line.japanese_text);
 
       if (ai.vocabulary.length > 0) {
@@ -97,6 +97,14 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        for (const gp of ai.grammar_points ?? []) {
+          if (!gp.structure) continue;
+          await run(
+            "INSERT INTO grammar_points (id, lyric_line_id, structure, explanation, example_sentence_jp, example_sentence_en) VALUES (?, ?, ?, ?, ?, ?)",
+            [uuid(), lineId, gp.structure, gp.explanation ?? "", gp.example_sentence_jp ?? "", gp.example_sentence_en ?? ""]
+          );
+        }
+
         const vocabWords = ai.vocabulary.map((v) => v.word).filter(Boolean);
         await run(
           `INSERT INTO sentence_bank (id, japanese_text, english_text, youtube_id, start_time, end_time, song_title, words)
@@ -106,7 +114,7 @@ export async function POST(req: NextRequest) {
              english_text = excluded.english_text,
              song_title = excluded.song_title,
              words = excluded.words`,
-          [uuid(), line.japanese_text, ai.english || "", youtubeId, line.start_time, line.end_time, title, JSON.stringify(vocabWords)]
+          [uuid(), line.japanese_text, ai.line_analysis?.literal_translation || "", youtubeId, line.start_time, line.end_time, title, JSON.stringify(vocabWords)]
         );
       } else {
         await run(
@@ -117,7 +125,7 @@ export async function POST(req: NextRequest) {
              english_text = excluded.english_text,
              song_title = excluded.song_title,
              words = excluded.words`,
-          [uuid(), line.japanese_text, ai.english || "", youtubeId, line.start_time, line.end_time, title]
+          [uuid(), line.japanese_text, ai.line_analysis?.literal_translation || "", youtubeId, line.start_time, line.end_time, title]
         );
       }
     }

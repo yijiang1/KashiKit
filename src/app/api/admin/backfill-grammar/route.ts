@@ -1,0 +1,61 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isAdmin } from "@/lib/admin";
+import { query, run, uuid } from "@/lib/db";
+import { analyzeLine } from "@/lib/ai/pipeline";
+
+export const maxDuration = 300;
+
+export async function POST(req: NextRequest) {
+  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await req.json().catch(() => ({}));
+  const limit = Math.min(Number(body.limit) || 50, 200);
+
+  // Lines that have vocabulary but no grammar_points yet
+  const lines = await query<{ id: string; japanese_text: string }>(
+    `SELECT ll.id, ll.japanese_text
+     FROM lyric_lines ll
+     WHERE EXISTS     (SELECT 1 FROM vocabulary     v  WHERE v.lyric_line_id  = ll.id)
+       AND NOT EXISTS (SELECT 1 FROM grammar_points gp WHERE gp.lyric_line_id = ll.id)
+     LIMIT ?`,
+    [limit]
+  );
+
+  const [{ cnt: totalRemaining }] = await query<{ cnt: number }>(
+    `SELECT COUNT(*) AS cnt
+     FROM lyric_lines ll
+     WHERE EXISTS     (SELECT 1 FROM vocabulary     v  WHERE v.lyric_line_id  = ll.id)
+       AND NOT EXISTS (SELECT 1 FROM grammar_points gp WHERE gp.lyric_line_id = ll.id)`
+  );
+
+  let processed = 0;
+  for (const line of lines) {
+    try {
+      const result = await analyzeLine(line.japanese_text);
+      const points = (result.grammar_points ?? []).filter((gp) => gp.structure);
+      if (points.length > 0) {
+        for (const gp of points) {
+          await run(
+            "INSERT INTO grammar_points (id, lyric_line_id, structure, explanation, example_sentence_jp, example_sentence_en) VALUES (?, ?, ?, ?, ?, ?)",
+            [uuid(), line.id, gp.structure, gp.explanation ?? "", gp.example_sentence_jp ?? "", gp.example_sentence_en ?? ""]
+          );
+        }
+      } else {
+        // Insert sentinel so this line is not retried on future backfill runs
+        await run(
+          "INSERT INTO grammar_points (id, lyric_line_id, structure) VALUES (?, ?, '_none')",
+          [uuid(), line.id]
+        );
+      }
+      processed++;
+    } catch {
+      // Skip failed lines, continue batch
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  return NextResponse.json({
+    processed,
+    remaining: Math.max(0, Number(totalRemaining) - processed),
+  });
+}
