@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const JP_RE = /[\u3040-\u30FF\u4E00-\u9FFF]/;
+// Hiragana/katakana + Han ideographs \u2014 covers both Japanese (kana+kanji) and
+// Chinese (hanzi) lyrics, since lrclib.net search isn't language-scoped.
+const CJK_RE = /[\u3040-\u30FF\u4E00-\u9FFF]/;
 
-function hasJapanese(lrc: string): boolean {
-  return JP_RE.test(lrc);
+function hasCJKText(lrc: string): boolean {
+  return CJK_RE.test(lrc);
 }
 
+// Songwriting-credit line prefixes ("词："/"作詞：" lyricist, "曲：" composer, etc.) —
+// the same convention in both Chinese and Japanese LRC headers, using either
+// simplified or traditional forms of the character.
+const CREDIT_LINE_RE = /^(作?[词詞]|作?曲|编曲|編曲|监制|監製|制作人?|製作人?|混音|录音|錄音|演唱|原唱)\s*[:：]/;
+
 function stripTitleLine(lrc: string): string {
-  // Remove lines at [00:00.xx] that look like "Title - Artist" (no Japanese)
   return lrc
     .split("\n")
     .filter((line) => {
       const isEarlyTimestamp = /^\[00:0[01]\.\d+\]/.test(line);
       const text = line.replace(/^\[[\d:.]+\]/, "").trim();
-      if (isEarlyTimestamp && text && !JP_RE.test(text)) return false;
+      if (!text) return true;
+      // Songwriting credits can appear at any point in the first verse's lead-in,
+      // not just the very first timestamp — drop them wherever they show up.
+      if (CREDIT_LINE_RE.test(text)) return false;
+      // Remove an early "Title - Artist" header line, whether romanized (no CJK
+      // text at all) or in the song's own script (dash-separated, e.g. "大鱼 - 周深").
+      if (isEarlyTimestamp) {
+        if (!CJK_RE.test(text)) return false;
+        if (/^.+[-－].+$/.test(text)) return false;
+      }
       return true;
     })
     .join("\n");
@@ -28,8 +43,8 @@ function pickBest(results: LrcResult[], preferTitle?: string): LrcResult | undef
     ? withSynced.filter((r) => r.trackName.toLowerCase() === preferTitle.toLowerCase())
     : withSynced;
   const pool = titleMatches.length > 0 ? titleMatches : withSynced;
-  // Prefer results whose lyrics contain Japanese characters
-  return pool.find((r) => hasJapanese(r.syncedLyrics!)) ?? pool[0];
+  // Prefer results with CJK lyrics over romanized-only transliterations
+  return pool.find((r) => hasCJKText(r.syncedLyrics!)) ?? pool[0];
 }
 
 export async function GET(req: NextRequest) {
@@ -50,7 +65,7 @@ export async function GET(req: NextRequest) {
         const exactMatch = await exactRes.json();
         if (exactMatch?.syncedLyrics) {
           // If exact match is romanized, fall through to search for a Japanese version
-          if (hasJapanese(exactMatch.syncedLyrics)) {
+          if (hasCJKText(exactMatch.syncedLyrics)) {
             return NextResponse.json({
               lrc: stripTitleLine(exactMatch.syncedLyrics),
               trackName: exactMatch.trackName,
