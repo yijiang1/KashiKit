@@ -80,6 +80,20 @@ HSK data sourced from:
 4. Click **+ Import song**, paste the YouTube URL and the artist/title, set how many lines per day, and hit Import
 5. The app processes each line with AI (~1 API call per line) and generates your course
 
+### Export to Anki
+
+Turn an already-imported song into an Anki deck with one card per newly-seen word, each with its own audio clip cut from the song. This is a local CLI script, not a site feature — it reuses the reading/meaning/level/translations already stored from import, so it makes no AI calls.
+
+Prerequisites: [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) and `ffmpeg` (`brew install yt-dlp ffmpeg` on macOS).
+
+```bash
+npx tsx scripts/export-anki.ts <youtube_id_or_title> [--day=N] [--out=dir] [--padding=200]
+```
+
+This writes a `<song>-anki-deck.zip` containing `notes.csv` and one `clip_XXXX.mp3` per card. To import into Anki: unzip it, **File → Import** the CSV (mapping the `Audio` column to the Audio field), then copy the `clip_*.mp3` files into your profile's `collection.media` folder.
+
+Note: this downloads audio from YouTube for personal study use — be mindful of YouTube's Terms of Service, and don't expose this as a public-facing feature.
+
 ## Admin Mode
 
 Set `ADMIN_MODE=true` in your environment to unlock admin-only features:
