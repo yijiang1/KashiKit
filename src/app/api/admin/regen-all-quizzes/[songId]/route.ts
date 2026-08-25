@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, run } from "@/lib/db";
+import { query, run, queryOne } from "@/lib/db";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
 import { isAdmin } from "@/lib/admin";
+import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export const maxDuration = 300;
 
@@ -12,6 +13,9 @@ export async function POST(
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { songId } = await params;
+
+  const song = await queryOne<{ language: string }>("SELECT language FROM songs WHERE id = ?", [songId]);
+  const language = isLanguageId(song?.language) ? song.language : DEFAULT_LANGUAGE;
 
   const lessons = await query<{ id: string }>(
     "SELECT id FROM lessons WHERE song_id = ?",
@@ -46,7 +50,7 @@ export async function POST(
     }));
 
     try {
-      const questions = await generateQuizQuestions(lyricsContext, vocabList);
+      const questions = await generateQuizQuestions(lyricsContext, vocabList, language);
       await run(
         "INSERT INTO quizzes (lesson_id, questions) VALUES (?, ?) ON CONFLICT(lesson_id) DO UPDATE SET questions = excluded.questions, generated_at = datetime('now')",
         [lesson.id, JSON.stringify(questions)]

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, Fragment } from "react";
-import SentenceExamples, { Highlight, speakJapanese } from "@/components/shared/SentenceExamples";
+import SentenceExamples, { Highlight, speak } from "@/components/shared/SentenceExamples";
+import { useLanguage } from "@/lib/language-context";
+import { getLanguageConfig } from "@/lib/languages";
 
 type Entry = {
   word: string;
@@ -11,26 +13,11 @@ type Entry = {
   grammar_notes: string;
   example_sentence: string;
   example_sentence_english: string;
-  jlpt_level: number | null;
+  level: number | null;
 };
 
-const JLPT_FILTERS = [
-  { label: "All",  value: "",             style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "N5",   value: "5",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "N4",   value: "4",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "N3",   value: "3",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "N2",   value: "2",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "N1",   value: "1",            style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-  { label: "Unclassified", value: "unclassified", style: "border-gray-200 text-gray-600 bg-white hover:bg-gray-50" },
-] as const;
-
-const JLPT_BADGES: Record<number, string> = {
-  5: "border-gray-200 text-gray-500 bg-gray-50",
-  4: "border-gray-200 text-gray-500 bg-gray-50",
-  3: "border-gray-200 text-gray-500 bg-gray-50",
-  2: "border-gray-200 text-gray-500 bg-gray-50",
-  1: "border-gray-200 text-gray-500 bg-gray-50",
-};
+const LEVEL_BADGE_STYLE = "border-gray-200 text-gray-500 bg-gray-50";
+const FILTER_STYLE = "border-gray-200 text-gray-600 bg-white hover:bg-gray-50";
 
 const POS_OPTIONS = ["noun", "verb", "adjective", "adverb", "expression", "other"];
 
@@ -48,9 +35,17 @@ interface Props {
 }
 
 export default function DictionaryTable({ isAdmin }: Props) {
+  const { language } = useLanguage();
+  const langConfig = getLanguageConfig(language);
+  const levelFilters = [
+    { label: "All", value: "" },
+    ...langConfig.levelSystem.easiestFirst.map((level) => ({ label: langConfig.levelSystem.badge(level), value: String(level) })),
+    { label: "Unclassified", value: "unclassified" },
+  ];
+
   const [entries, setEntries] = useState<Entry[]>([]);
   const [search, setSearch] = useState("");
-  const [jlptFilter, setJlptFilter] = useState("");
+  const [levelFilter, setLevelFilter] = useState("");
   const [posFilter, setPosFilter] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Entry | null>(null);
@@ -59,28 +54,33 @@ export default function DictionaryTable({ isAdmin }: Props) {
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ language });
     if (search) params.set("q", search);
-    if (jlptFilter) params.set("level", jlptFilter);
+    if (levelFilter) params.set("level", levelFilter);
     if (posFilter) params.set("pos", posFilter);
-    const qs = params.toString();
-    const res = await fetch(`/api/dictionary${qs ? `?${qs}` : ""}`);
+    const res = await fetch(`/api/dictionary?${params}`);
     const data = await res.json();
     if (Array.isArray(data)) setEntries(data);
     setLoading(false);
-  }, [search, jlptFilter, posFilter]);
+  }, [search, levelFilter, posFilter, language]);
 
   useEffect(() => {
     const timer = setTimeout(fetchEntries, 300);
     return () => clearTimeout(timer);
   }, [fetchEntries]);
 
+  // Reset the level filter when switching languages — the levels themselves
+  // (JLPT N1-N5 vs HSK 1-6) aren't comparable across languages.
+  useEffect(() => {
+    setLevelFilter("");
+  }, [language]);
+
   async function handleSave() {
     if (!editForm) return;
     await fetch("/api/dictionary", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({ ...editForm, language }),
     });
     setEditing(null);
     setEditForm(null);
@@ -89,7 +89,7 @@ export default function DictionaryTable({ isAdmin }: Props) {
 
   async function handleDelete(word: string) {
     if (!confirm(`Delete "${word}" from dictionary?`)) return;
-    await fetch(`/api/dictionary?word=${encodeURIComponent(word)}`, { method: "DELETE" });
+    await fetch(`/api/dictionary?word=${encodeURIComponent(word)}&language=${language}`, { method: "DELETE" });
     fetchEntries();
   }
 
@@ -118,13 +118,13 @@ export default function DictionaryTable({ isAdmin }: Props) {
         </svg>
       </div>
 
-      {/* JLPT filter */}
+      {/* Level filter (JLPT / HSK) */}
       <div className="flex flex-wrap gap-1.5">
-        {JLPT_FILTERS.map((f) => (
+        {levelFilters.map((f) => (
           <button
             key={f.value}
-            onClick={() => setJlptFilter(f.value)}
-            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${f.style} ${jlptFilter === f.value ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
+            onClick={() => setLevelFilter(f.value)}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${FILTER_STYLE} ${levelFilter === f.value ? "ring-2 ring-offset-1 ring-indigo-400" : ""}`}
           >
             {f.label}
           </button>
@@ -161,7 +161,7 @@ export default function DictionaryTable({ isAdmin }: Props) {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Word</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Reading</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-700">{langConfig.readingLabel}</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Meaning</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">POS</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Grammar notes</th>
@@ -229,9 +229,9 @@ export default function DictionaryTable({ isAdmin }: Props) {
                             <path d="M8 5v14l11-7z"/>
                           </svg>
                           {entry.word}
-                          {!jlptFilter && entry.jlpt_level != null && (
-                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${JLPT_BADGES[entry.jlpt_level]}`}>
-                              N{entry.jlpt_level}
+                          {!levelFilter && entry.level != null && (
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${LEVEL_BADGE_STYLE}`}>
+                              {langConfig.levelSystem.badge(entry.level)}
                             </span>
                           )}
                         </div>
@@ -262,7 +262,7 @@ export default function DictionaryTable({ isAdmin }: Props) {
                     <td colSpan={isAdmin ? 6 : 5} className="px-6 py-4">
                       <div className="max-w-lg space-y-3">
                         <button
-                          onClick={() => speakJapanese(entry.word)}
+                          onClick={() => speak(entry.word, langConfig.ttsLang)}
                           className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
                         >
                           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -276,7 +276,7 @@ export default function DictionaryTable({ isAdmin }: Props) {
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Example</p>
                               <button
-                                onClick={() => speakJapanese(entry.example_sentence)}
+                                onClick={() => speak(entry.example_sentence, langConfig.ttsLang)}
                                 title="Pronounce"
                                 className="w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors"
                               >
@@ -294,7 +294,7 @@ export default function DictionaryTable({ isAdmin }: Props) {
                           </div>
                         )}
 
-                        <SentenceExamples word={entry.word} />
+                        <SentenceExamples word={entry.word} language={language} />
                       </div>
                     </td>
                   </tr>

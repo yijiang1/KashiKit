@@ -15,6 +15,7 @@ type GrammarRow = {
   youtube_id: string;
   start_time: number;
   end_time: number;
+  language: string;
 };
 
 export default async function GrammarPage() {
@@ -33,7 +34,8 @@ export default async function GrammarPage() {
         s.title  AS song_title,
         s.youtube_id,
         ll.start_time,
-        ll.end_time
+        ll.end_time,
+        s.language
       FROM grammar_points gp
       JOIN lyric_lines ll ON gp.lyric_line_id = ll.id
       JOIN lessons     l  ON ll.lesson_id = l.id
@@ -42,13 +44,15 @@ export default async function GrammarPage() {
       ORDER BY gp.structure, gp.id
     `);
 
-    // Group by structure, keep first 5 examples, track true total count
-    const map = new Map<string, { count: number; examples: GrammarExample[] }>();
+    // Group by (structure, language) — languages can't share a structure, but
+    // grouping this way keeps the language tag attached to each group.
+    const map = new Map<string, { structure: string; language: string; count: number; examples: GrammarExample[] }>();
     for (const row of rows) {
-      if (!map.has(row.structure)) {
-        map.set(row.structure, { count: 0, examples: [] });
+      const key = `${row.language}:${row.structure}`;
+      if (!map.has(key)) {
+        map.set(key, { structure: row.structure, language: row.language, count: 0, examples: [] });
       }
-      const entry = map.get(row.structure)!;
+      const entry = map.get(key)!;
       entry.count++;
       if (entry.examples.length < 5) {
         entry.examples.push({
@@ -66,9 +70,7 @@ export default async function GrammarPage() {
       }
     }
 
-    structures = Array.from(map.entries())
-      .map(([structure, data]) => ({ structure, ...data }))
-      .sort((a, b) => b.count - a.count);
+    structures = Array.from(map.values()).sort((a, b) => b.count - a.count);
   } catch {
     // DB unavailable — renders empty state
   }

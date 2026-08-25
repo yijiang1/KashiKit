@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { extractYouTubeId } from "@/lib/youtube/loader";
 import { logApiUsage } from "@/lib/ai/usage-tracker";
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
-// Using 2.0 Flash for grouping — upgrade to "gemini-1.5-pro" if grouping quality is poor
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+import { geminiModel as model } from "@/lib/ai/client";
+import { getLanguageConfig, isLanguageId, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 type TranscriptItem = { offset: number; duration: number; text: string };
 type GroupedSegment = { offset: number; text: string };
@@ -15,7 +12,7 @@ type GroupedSegment = { offset: number; text: string };
  * Use Gemini to group raw caption segments into natural lyric lines.
  * Falls back to a simple gap-based split if the LLM call fails.
  */
-async function groupSegmentsWithLLM(items: TranscriptItem[]): Promise<GroupedSegment[]> {
+async function groupSegmentsWithLLM(items: TranscriptItem[], languageLabel: string): Promise<GroupedSegment[]> {
   if (items.length === 0) return [];
 
   // Build a numbered list for the LLM
@@ -23,11 +20,11 @@ async function groupSegmentsWithLLM(items: TranscriptItem[]): Promise<GroupedSeg
     .map((item, i) => `${i}: ${item.text.trim()}`)
     .join("\n");
 
-  const prompt = `These are raw auto-caption segments from a Japanese song. Each segment is a sentence fragment.
-Your job: merge consecutive fragments into exactly ONE complete Japanese sentence per group.
+  const prompt = `These are raw auto-caption segments from a ${languageLabel} song. Each segment is a sentence fragment.
+Your job: merge consecutive fragments into exactly ONE complete ${languageLabel} sentence per group.
 
 Rules:
-- One group = one grammatically complete Japanese sentence
+- One group = one grammatically complete ${languageLabel} sentence
 - A sentence ends at: 。！？♪ or a clear grammatical endpoint (verb/adjective ending a clause)
 - If a segment is already a complete sentence on its own, it stays alone
 - Never merge two separate sentences into one group
@@ -92,33 +89,36 @@ function msToLRCTimestamp(ms: number): string {
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url") || "";
   const videoId = extractYouTubeId(url);
+  const langParam = req.nextUrl.searchParams.get("lang");
+  const language = isLanguageId(langParam) ? langParam : DEFAULT_LANGUAGE;
+  const langConfig = getLanguageConfig(language);
 
   if (!videoId) {
     return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
   }
 
   try {
-    // Fetch Japanese captions
+    // Fetch captions in the target language
     let jpRaw: TranscriptItem[] = [];
     try {
-      jpRaw = await YoutubeTranscript.fetchTranscript(videoId, { lang: "ja" });
+      jpRaw = await YoutubeTranscript.fetchTranscript(videoId, { lang: language });
     } catch {
-      // lang=ja not available; try default and verify it's actually Japanese
+      // lang track not available; try default and verify it's actually the target script
       try {
         const fallback = await YoutubeTranscript.fetchTranscript(videoId);
-        const isJapanese = fallback.some((item) => /[\u3040-\u30FF\u4E00-\u9FFF]/.test(item.text));
-        if (isJapanese) jpRaw = fallback;
+        const matches = fallback.some((item) => langConfig.matchesScript(item.text));
+        if (matches) jpRaw = fallback;
       } catch {
         // no captions at all
       }
     }
 
     if (!jpRaw || jpRaw.length === 0) {
-      return NextResponse.json({ error: "No Japanese captions found for this video" }, { status: 404 });
+      return NextResponse.json({ error: `No ${langConfig.label} captions found for this video` }, { status: 404 });
     }
 
     // Use LLM to group fragments into natural phrases
-    const jpGroups = await groupSegmentsWithLLM(jpRaw);
+    const jpGroups = await groupSegmentsWithLLM(jpRaw, langConfig.label);
 
     // Try to fetch English captions for free translations
     let enRaw: TranscriptItem[] = [];
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
     } catch {
       // No English captions — AI will handle translation
     }
-    const enGroups = enRaw.length > 0 ? await groupSegmentsWithLLM(enRaw) : [];
+    const enGroups = enRaw.length > 0 ? await groupSegmentsWithLLM(enRaw, "English") : [];
 
     // Match each grouped JP line to the nearest grouped EN line by timestamp
     const translations: string[] = jpGroups.map((jpItem) => {

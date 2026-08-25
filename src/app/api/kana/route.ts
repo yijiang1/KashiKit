@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   if (!kana) return NextResponse.json({ words: [], sentences: [] });
 
   try {
+    // The Kana Chart is Japanese-only — scope explicitly rather than relying
+    // on kana characters simply not appearing in Chinese pinyin readings.
     const [words, sentences] = await Promise.all([
       query<WordRow>(
         `SELECT v.word, v.furigana, v.english_meaning, v.part_of_speech, s.title as song_title
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
          JOIN lyric_lines ll ON v.lyric_line_id = ll.id
          JOIN lessons l ON ll.lesson_id = l.id
          JOIN songs s ON l.song_id = s.id
-         WHERE v.furigana LIKE ?
+         WHERE v.furigana LIKE ? AND s.language = 'ja'
          GROUP BY v.word, v.furigana
          ORDER BY LENGTH(v.furigana), v.furigana
          LIMIT 24`,
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
          FROM lyric_lines ll
          JOIN lessons l ON ll.lesson_id = l.id
          JOIN songs s ON l.song_id = s.id
-         WHERE ll.japanese_text LIKE ?
+         WHERE ll.japanese_text LIKE ? AND s.language = 'ja'
          ORDER BY RANDOM()`,
         [`%${kana}%`]
       ),

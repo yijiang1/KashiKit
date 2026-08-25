@@ -1,8 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logApiUsage } from "./usage-tracker";
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+import { withRateLimitRetry } from "./pipeline";
+import { geminiModel as model } from "./client";
+import { getLanguageConfig, type LanguageId } from "@/lib/languages";
 
 export type QuizQuestion = {
   question: string;
@@ -13,9 +12,11 @@ export type QuizQuestion = {
 
 export async function generateQuizQuestions(
   lyricsContext: string,
-  vocabList: { word: string; furigana: string; meaning: string; pos: string }[]
+  vocabList: { word: string; furigana: string; meaning: string; pos: string }[],
+  language: LanguageId = "ja"
 ): Promise<QuizQuestion[]> {
-  const prompt = `You are a Japanese language quiz master. Based on the vocabulary and lyrics below, create a quiz with exactly 5 questions.
+  const langConfig = getLanguageConfig(language);
+  const prompt = `You are a ${langConfig.ai.quizPersona}. Based on the vocabulary and lyrics below, create a quiz with exactly 5 questions.
 
 Lyrics studied:
 ${lyricsContext}
@@ -24,8 +25,8 @@ Vocabulary:
 ${vocabList.map((v) => `${v.word} (${v.furigana}) = ${v.meaning} [${v.pos}]`).join("\n")}
 
 Create 5 multiple-choice questions mixing these types:
-- "What does [Japanese word] mean?" (test meaning)
-- "How do you read [kanji word]?" (test reading/furigana)
+- "What does [${langConfig.label} word] mean?" (test meaning)
+- "${langConfig.ai.quizReadingQuestion}" (test reading/${langConfig.readingLabel.toLowerCase()})
 - "Which word means [English meaning]?" (reverse lookup)
 - "Complete the lyric: [partial line]" (context recall)
 
@@ -48,7 +49,7 @@ Return this exact JSON structure:
 
 The "correct" field is the 0-based index of the correct option.`;
 
-  const result = await model.generateContent(prompt);
+  const result = await withRateLimitRetry(() => model.generateContent(prompt));
   const text = result.response.text();
   const cleaned = text.replace(/^```json?\n?/i, "").replace(/\n?```$/i, "").trim();
 
@@ -63,34 +64,27 @@ The "correct" field is the 0-based index of the correct option.`;
   }
 
   const questions = JSON.parse(cleaned) as QuizQuestion[];
-  return validateAndFix(questions);
+  const valid = validate(questions);
+  if (valid.length === 0) {
+    throw new Error("Quiz generation returned no valid questions");
+  }
+  return valid;
 }
 
-function validateAndFix(questions: QuizQuestion[]): QuizQuestion[] {
-  return questions.map((q) => {
-    const n = q.options.length;
-
-    // Fix out-of-bounds index
-    if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct >= n) {
-      const inferred = inferFromExplanation(q);
-      return { ...q, correct: inferred ?? 0 };
-    }
-
-    // If the stated correct option doesn't appear in the explanation, find one that does
-    const explanation = q.explanation.toLowerCase();
-    if (!explanation.includes(q.options[q.correct].toLowerCase())) {
-      const inferred = inferFromExplanation(q);
-      if (inferred !== null && inferred !== q.correct) {
-        return { ...q, correct: inferred };
-      }
-    }
-
-    return q;
-  });
-}
-
-function inferFromExplanation(q: QuizQuestion): number | null {
-  const explanation = q.explanation.toLowerCase();
-  const idx = q.options.findIndex((opt) => explanation.includes(opt.toLowerCase()));
-  return idx !== -1 ? idx : null;
+// Drop structurally broken questions rather than guessing the correct answer —
+// substring-matching options against the explanation can flip right answers to
+// wrong ones (e.g. an explanation that mentions a distractor, or 空 inside 空気).
+function validate(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.filter(
+    (q) =>
+      typeof q.question === "string" &&
+      q.question.trim().length > 0 &&
+      Array.isArray(q.options) &&
+      q.options.length >= 2 &&
+      q.options.every((o) => typeof o === "string" && o.trim().length > 0) &&
+      new Set(q.options).size === q.options.length &&
+      Number.isInteger(q.correct) &&
+      q.correct >= 0 &&
+      q.correct < q.options.length
+  );
 }

@@ -1,24 +1,26 @@
 # KashiKit
 
-> The AI-powered toolkit for turning Japanese lyrics into language mastery.
+> The AI-powered toolkit for turning song lyrics into language mastery.
 
 ![KashiKit Logo](public/logo.png)
 
 **Live site: [kashikit.com](https://www.kashikit.com/)**
 
-KashiKit turns any Japanese song into a structured, multi-day language course. Paste a YouTube URL and an LRC lyrics file — the app does the rest.
+KashiKit turns any Japanese or Mandarin Chinese song into a structured, multi-day language course. Paste a YouTube URL and an LRC lyrics file — the app does the rest. A language toggle in the header switches the whole site (dashboard, dictionary, reference chart, grammar guide) between Japanese and Chinese content.
 
 ## Features
 
+- **Two languages, one app** — Japanese and Chinese songs live side by side; a header toggle filters everything to the selected language
 - **Auto-generated courses** — splits a song into daily lessons based on how many lines you want to study per day
 - **AI difficulty ratings** — each song is rated 1–5 stars by the AI with a short explanation of why
-- **Vocabulary cards** — click any word in a lyric to see its meaning, furigana, part of speech, grammar notes, and an AI-generated example sentence
-- **Furigana overlay** — readings displayed above kanji using `<ruby>` tags
+- **Vocabulary cards** — click any word in a lyric to see its meaning, reading (furigana or pinyin), part of speech, grammar notes, and an AI-generated example sentence
+- **Reading overlay** — furigana or pinyin displayed above the lyric text using `<ruby>` tags
 - **Synchronized video** — embedded YouTube player loops the current lyric line automatically
 - **Sentence bank** — real example clips from other songs in your library where the same word appears
-- **Text-to-speech** — pronounce any word with one click using the browser's built-in Japanese voice
+- **Text-to-speech** — pronounce any word with one click using the browser's built-in Japanese or Mandarin voice
 - **Vocabulary quiz** — pre-generated fill-in-the-blank quiz at the end of each lesson
-- **Dictionary** — searchable cache of every word you've studied across all songs, with filters by JLPT level (N1–N5) and part of speech
+- **Dictionary** — searchable cache of every word you've studied across all songs, with filters by JLPT level (N1–N5) or HSK level (1–6) and part of speech
+- **Reference chart** — a Kana Chart (hiragana/katakana) for Japanese, or a Pinyin Chart (initials/finals + tones) for Chinese
 - **Progress tracking** — lesson progress saved locally in the browser (no account needed)
 - **Auto lyrics fetch** — automatically pulls LRC lyrics from [lrclib.net](https://lrclib.net) when available
 - **API usage tracker** — monitor your daily Gemini API call count against the free tier limit (1,500/day)
@@ -52,26 +54,31 @@ Open [http://localhost:3000](http://localhost:3000).
 
 By default the app uses a local SQLite file (`lyriclearn.db`) in the project root. To use Turso in production, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in your environment.
 
-### JLPT level data (optional)
+### JLPT / HSK level data (optional)
 
-To enable JLPT level filters in the dictionary, run the seed script once after setup:
+To enable level filters in the dictionary, run the relevant seed script(s) once after setup:
 
 ```bash
-npx tsx scripts/seed-jlpt.ts
+npx tsx scripts/seed-jlpt.ts  # Japanese — JLPT N1-N5
+npx tsx scripts/seed-hsk.ts   # Chinese — HSK 1-6
 ```
 
-This fetches ~5,000 words from public JLPT vocabulary lists and stores them in the local database. Only needs to be run once.
+These fetch public vocabulary lists and store them in the local database. Only needs to be run once each.
 
 JLPT data sourced from:
 - [Bluskyo/JLPT_Vocabulary](https://github.com/Bluskyo/JLPT_Vocabulary) — N1–N5 word list
 - [surajsau/JLPT-Resources](https://github.com/surajsau/JLPT-Resources) — N4/N5 with readings
 
+HSK data sourced from:
+- [drkameleon/complete-hsk-vocabulary](https://github.com/drkameleon/complete-hsk-vocabulary) — classic HSK 1–6 word lists with pinyin
+
 ### Importing a song
 
-1. Find a Japanese song on YouTube
-2. Get the LRC lyrics file (e.g. from [lrclib.net](https://lrclib.net) — KashiKit can fetch these automatically)
-3. Click **+ Import song**, paste the YouTube URL and the artist/title, set how many lines per day, and hit Import
-4. The app processes each line with AI (~1 API call per line) and generates your course
+1. Find a Japanese or Chinese song on YouTube
+2. Pick the language in the import form
+3. Get the LRC lyrics file (e.g. from [lrclib.net](https://lrclib.net) — KashiKit can fetch these automatically, or pull captions directly from the YouTube video)
+4. Click **+ Import song**, paste the YouTube URL and the artist/title, set how many lines per day, and hit Import
+5. The app processes each line with AI (~1 API call per line) and generates your course
 
 ## Admin Mode
 

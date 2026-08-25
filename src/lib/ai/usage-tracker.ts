@@ -1,4 +1,5 @@
 import { run, uuid } from "@/lib/db";
+import { GEMINI_MODEL } from "./client";
 
 export async function logApiUsage(data: {
   model?: string;
@@ -12,7 +13,7 @@ export async function logApiUsage(data: {
       "INSERT INTO api_usage (id, model, prompt_tokens, completion_tokens, total_tokens, purpose) VALUES (?, ?, ?, ?, ?, ?)",
       [
         uuid(),
-        data.model ?? "gemini-2.0-flash",
+        data.model ?? GEMINI_MODEL,
         data.prompt_tokens,
         data.completion_tokens,
         data.total_tokens,

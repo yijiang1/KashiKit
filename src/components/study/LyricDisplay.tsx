@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import type { LyricLine, Vocabulary } from "@/types";
 import { posColor } from "./VocabCarousel";
-import SentenceExamples, { Highlight, speakJapanese } from "@/components/shared/SentenceExamples";
+import SentenceExamples, { Highlight, speak } from "@/components/shared/SentenceExamples";
+import { getLanguageConfig, type LanguageId } from "@/lib/languages";
 
 interface Props {
   line: LyricLine;
+  language?: LanguageId;
 }
 
 // POS → underline colour class
@@ -59,7 +61,8 @@ function buildSegments(japaneseText: string, vocabulary: Vocabulary[]): Segment[
   return segments;
 }
 
-export default function LyricDisplay({ line }: Props) {
+export default function LyricDisplay({ line, language = "ja" }: Props) {
+  const langConfig = getLanguageConfig(language);
   const [selected, setSelected] = useState<Vocabulary | null>(null);
   const segments = buildSegments(line.japanese_text, line.vocabulary);
 
@@ -97,6 +100,9 @@ export default function LyricDisplay({ line }: Props) {
 
       {/* Translation */}
       <p className="text-lg text-gray-600 italic">{line.english_text || "—"}</p>
+      {line.natural_translation && line.natural_translation !== line.english_text && (
+        <p className="text-sm text-gray-400 -mt-2">“{line.natural_translation}”</p>
+      )}
 
       {/* POS legend */}
       {line.vocabulary.length > 0 && (
@@ -122,7 +128,7 @@ export default function LyricDisplay({ line }: Props) {
               <span className="text-xl font-bold text-gray-900">{selected.word}</span>
               <span className="text-sm text-indigo-500">{selected.furigana}</span>
               <button
-                onClick={() => speakJapanese(selected.word)}
+                onClick={() => speak(selected.word, langConfig.ttsLang)}
                 title="Pronounce"
                 className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors"
               >
@@ -146,7 +152,7 @@ export default function LyricDisplay({ line }: Props) {
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Example</p>
                 <button
-                  onClick={() => speakJapanese(selected.example_sentence!)}
+                  onClick={() => speak(selected.example_sentence!, langConfig.ttsLang)}
                   title="Pronounce"
                   className="w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors"
                 >
@@ -163,7 +169,7 @@ export default function LyricDisplay({ line }: Props) {
           )}
 
           {/* Real examples from sentence bank */}
-          <SentenceExamples word={selected.word} excludeSentence={line.japanese_text} />
+          <SentenceExamples word={selected.word} excludeSentence={line.japanese_text} language={language} />
         </div>
       )}
 

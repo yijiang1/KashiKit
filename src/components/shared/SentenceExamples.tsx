@@ -18,11 +18,12 @@ export function formatTime(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-export function speakJapanese(text: string) {
+/** Speak `text` using the browser's TTS voice for `ttsLang` (e.g. "ja-JP", "zh-CN"). */
+export function speak(text: string, ttsLang: string = "ja-JP") {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = "ja-JP";
+  utt.lang = ttsLang;
   utt.rate = 0.9;
   window.speechSynthesis.speak(utt);
 }
@@ -104,7 +105,15 @@ export function ClipPlayer({ videoId, startTime, endTime }: { videoId: string; s
   return <div ref={containerRef} className="w-full" style={{ height: 150 }} />;
 }
 
-export default function SentenceExamples({ word, excludeSentence }: { word: string; excludeSentence?: string }) {
+export default function SentenceExamples({
+  word,
+  excludeSentence,
+  language = "ja",
+}: {
+  word: string;
+  excludeSentence?: string;
+  language?: string;
+}) {
   const [examples, setExamples] = useState<SentenceExample[]>([]);
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -112,7 +121,7 @@ export default function SentenceExamples({ word, excludeSentence }: { word: stri
   useEffect(() => {
     setLoading(true);
     setPlayingId(null);
-    const params = new URLSearchParams({ word });
+    const params = new URLSearchParams({ word, language });
     if (excludeSentence) params.set("exclude", excludeSentence);
     fetch(`/api/sentences?${params}`)
       .then((r) => r.json())
@@ -121,7 +130,7 @@ export default function SentenceExamples({ word, excludeSentence }: { word: stri
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [word, excludeSentence]);
+  }, [word, excludeSentence, language]);
 
   if (loading) return <p className="text-xs text-gray-400">Loading examples...</p>;
   if (examples.length === 0) return null;

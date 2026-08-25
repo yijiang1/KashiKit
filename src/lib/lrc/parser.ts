@@ -14,19 +14,21 @@ function parseTimestamp(minutes: string, seconds: string, centiseconds: string):
   return parseInt(minutes) * 60 + parseInt(seconds) + cs;
 }
 
+export function parseLRCLine(line: string): { timestamp: number; text: string } | null {
+  const match = line.trim().match(TIMESTAMP_REGEX);
+  if (!match) return null;
+  const [, mm, ss, cs, text] = match;
+  return { timestamp: parseTimestamp(mm, ss, cs), text: text.trim() };
+}
+
 export function parseLRC(lrcContent: string): ParsedLine[] {
   // Parse ALL timestamp lines, including blank ones (instrumental markers)
   const all: Array<{ timestamp: number; text: string }> = [];
 
   for (const line of lrcContent.split("\n")) {
-    const match = line.trim().match(TIMESTAMP_REGEX);
-    if (!match) continue;
-
-    const [, mm, ss, cs, text] = match;
-    all.push({
-      timestamp: parseTimestamp(mm, ss, cs),
-      text: text.trim(),
-    });
+    const parsed = parseLRCLine(line);
+    if (!parsed) continue;
+    all.push(parsed);
   }
 
   // Sort ascending by timestamp (some LRC files are out of order)
@@ -53,10 +55,17 @@ export function parseLRC(lrcContent: string): ParsedLine[] {
 }
 
 export function distributeLines(lines: ParsedLine[], dayCount: number): ParsedLine[][] {
-  const chunkSize = Math.ceil(lines.length / dayCount);
+  // Always produce exactly dayCount chunks (capped at one line per day),
+  // with sizes differing by at most 1 — earlier days get the extra line.
+  const days = Math.max(1, Math.min(dayCount, lines.length));
+  const base = Math.floor(lines.length / days);
+  const remainder = lines.length % days;
   const chunks: ParsedLine[][] = [];
-  for (let i = 0; i < lines.length; i += chunkSize) {
-    chunks.push(lines.slice(i, i + chunkSize));
+  let cursor = 0;
+  for (let d = 0; d < days; d++) {
+    const size = base + (d < remainder ? 1 : 0);
+    chunks.push(lines.slice(cursor, cursor + size));
+    cursor += size;
   }
   return chunks;
 }

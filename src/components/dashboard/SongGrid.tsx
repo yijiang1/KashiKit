@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { Song } from "@/types";
 import SongCard from "./SongCard";
 import { getCompletedLessonIds } from "@/lib/progress";
+import { useLanguage } from "@/lib/language-context";
 
 type SortMode = "newest" | "oldest" | "easiest" | "hardest";
 
@@ -14,7 +15,9 @@ interface Props {
   dbAvailable?: boolean;
 }
 
-export default function SongGrid({ songs, lessonsBySong, isAdmin, dbAvailable = true }: Props) {
+export default function SongGrid({ songs: allSongs, lessonsBySong, isAdmin, dbAvailable = true }: Props) {
+  const { language } = useLanguage();
+  const songs = useMemo(() => allSongs.filter((s) => s.language === language), [allSongs, language]);
   const [completedDaysBySong, setCompletedDaysBySong] = useState<Record<string, number>>({});
   const [sortBy, setSortBy] = useState<SortMode>("newest");
   const [artistFilter, setArtistFilter] = useState<string | null>(null);

@@ -17,12 +17,16 @@ async function main() {
   const { run, getDb } = await import("../src/lib/db");
   await getDb();
 
-  // Ensure jlpt_words table exists
+  // getDb() above already ran the app's own migrations, which create
+  // jlpt_words with a (word, language) composite key — this is just a
+  // defensive fallback in case this script is ever run standalone.
   await run(`
     CREATE TABLE IF NOT EXISTS jlpt_words (
-      word    TEXT PRIMARY KEY,
-      reading TEXT,
-      level   INTEGER NOT NULL CHECK (level BETWEEN 1 AND 5)
+      word     TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'ja',
+      reading  TEXT,
+      level    INTEGER NOT NULL CHECK (level BETWEEN 1 AND 6),
+      PRIMARY KEY (word, language)
     )
   `);
 

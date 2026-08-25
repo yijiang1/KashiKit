@@ -166,6 +166,7 @@ export default function LyricsEditor({ songs }: Props) {
             end_time: nextLine ? nextLine.start_time : afterLine.end_time + 4,
             japanese_text: "",
             english_text: "",
+            natural_translation: "",
             trim: 0,
             vocabulary: [],
             _status: "added",
@@ -461,7 +462,7 @@ export default function LyricsEditor({ songs }: Props) {
       const res = await fetch("/api/admin/retranslate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ japaneseText: line.japanese_text }),
+        body: JSON.stringify({ japaneseText: line.japanese_text, language: songData?.song.language }),
       });
       if (!res.ok) { alert("Retranslation failed"); return; }
       const { englishText } = await res.json();

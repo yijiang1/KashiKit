@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
+import { isLanguageId, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 export async function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("word") || "";
   const exclude = req.nextUrl.searchParams.get("exclude") || "";
+  const langParam = req.nextUrl.searchParams.get("language");
+  const language = isLanguageId(langParam) ? langParam : DEFAULT_LANGUAGE;
   if (!word) {
     return NextResponse.json({ error: "Missing word" }, { status: 400 });
   }
@@ -13,18 +16,20 @@ export async function GET(req: NextRequest) {
     rows = await query(
       `SELECT japanese_text, english_text, youtube_id, start_time, end_time, song_title
        FROM sentence_bank
-       WHERE EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
+       WHERE language = ?
+         AND EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
          AND japanese_text != ?
        LIMIT 10`,
-      [word, exclude]
+      [language, word, exclude]
     );
   } else {
     rows = await query(
       `SELECT japanese_text, english_text, youtube_id, start_time, end_time, song_title
        FROM sentence_bank
-       WHERE EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
+       WHERE language = ?
+         AND EXISTS (SELECT 1 FROM json_each(words) WHERE value = ?)
        LIMIT 10`,
-      [word]
+      [language, word]
     );
   }
 

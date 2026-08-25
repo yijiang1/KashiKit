@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, run } from "@/lib/db";
+import { query, run, queryOne } from "@/lib/db";
 import { assessDifficulty } from "@/lib/ai/pipeline";
+import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ songId: string }> }
 ) {
   const { songId } = await params;
+
+  const song = await queryOne<{ language: string }>("SELECT language FROM songs WHERE id = ?", [songId]);
+  const language = isLanguageId(song?.language) ? song.language : DEFAULT_LANGUAGE;
 
   // Gather all lyrics and vocabulary for this song
   const lines = await query<{ japanese_text: string }>(
@@ -33,7 +37,8 @@ export async function POST(
 
   const { difficulty, reason } = await assessDifficulty(
     lines.map((l) => l.japanese_text),
-    vocab.map((v) => ({ word: v.word, pos: v.part_of_speech }))
+    vocab.map((v) => ({ word: v.word, pos: v.part_of_speech })),
+    language
   );
 
   await run("UPDATE songs SET difficulty = ?, difficulty_reason = ? WHERE id = ?", [difficulty, reason, songId]);

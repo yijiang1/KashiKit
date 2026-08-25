@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
 import { isAdmin } from "@/lib/admin";
+import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export const maxDuration = 300;
 
@@ -10,8 +11,11 @@ export async function POST() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const lessons = await query<{ id: string }>(
-    "SELECT id FROM lessons WHERE id NOT IN (SELECT lesson_id FROM quizzes)"
+  const lessons = await query<{ id: string; language: string }>(
+    `SELECT l.id, s.language
+     FROM lessons l
+     JOIN songs s ON l.song_id = s.id
+     WHERE l.id NOT IN (SELECT lesson_id FROM quizzes)`
   );
 
   let generated = 0;
@@ -42,7 +46,8 @@ export async function POST() {
     }));
 
     try {
-      const questions = await generateQuizQuestions(lyricsContext, vocabList);
+      const language = isLanguageId(lesson.language) ? lesson.language : DEFAULT_LANGUAGE;
+      const questions = await generateQuizQuestions(lyricsContext, vocabList, language);
       await run(
         "INSERT INTO quizzes (lesson_id, questions) VALUES (?, ?) ON CONFLICT(lesson_id) DO UPDATE SET questions = excluded.questions, generated_at = datetime('now')",
         [lesson.id, JSON.stringify(questions)]

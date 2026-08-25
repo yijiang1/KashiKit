@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { ClipPlayer, speakJapanese } from "@/components/shared/SentenceExamples";
+import { useState, useMemo, useEffect } from "react";
+import { ClipPlayer, speak } from "@/components/shared/SentenceExamples";
+import { useLanguage } from "@/lib/language-context";
+import { getLanguageConfig } from "@/lib/languages";
 
-const JP_RE = /[ぁ-ん゛゜ァ-ヶー一-龯々]+/;
+// Kana + Han characters — covers both Japanese structure labels (which mix kana
+// and kanji, e.g. 〜てしまう) and Chinese ones (pure Han, e.g. 把-construction).
+const CJK_RE = /[ぁ-ん゛゜ァ-ヶー一-龯々]+/;
 
-// Extract the Japanese core from a structure label, e.g.:
+// Extract the CJK core from a structure label, e.g.:
 //   〜てしまう  → てしまう
 //   〜ば/〜たら → ば
 //   Noun + の + Noun → の
+//   把-construction → 把
 function extractPattern(structure: string): string {
   const first = structure.split("/")[0];
   const stripped = first.replace(/^[〜～~]/, "").replace(/[〜～~]$/, "").trim();
-  // If it's already pure Japanese, use as-is
-  if (JP_RE.test(stripped) && !/[A-Za-z+]/.test(stripped)) return stripped;
-  // For descriptive patterns like "Noun + の + Noun", pull the first Japanese token
-  const m = stripped.match(JP_RE);
+  // If it's already pure CJK, use as-is
+  if (CJK_RE.test(stripped) && !/[A-Za-z+]/.test(stripped)) return stripped;
+  // For descriptive patterns like "Noun + の + Noun", pull the first CJK token
+  const m = stripped.match(CJK_RE);
   return m ? m[0] : stripped;
 }
 
@@ -60,15 +65,24 @@ export type GrammarExample = {
 
 export type GrammarStructure = {
   structure: string;
+  language: string;
   count: number;
   examples: GrammarExample[];
 };
 
-export default function GrammarExplorer({ structures }: { structures: GrammarStructure[] }) {
-  const [selected, setSelected] = useState<string | null>(structures[0]?.structure ?? null);
+export default function GrammarExplorer({ structures: allStructures }: { structures: GrammarStructure[] }) {
+  const { language } = useLanguage();
+  const langConfig = getLanguageConfig(language);
+  const structures = useMemo(() => allStructures.filter((s) => s.language === language), [allStructures, language]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [playingClip, setPlayingClip] = useState<string | null>(null);
 
-  const active = structures.find((s) => s.structure === selected) ?? null;
+  const active = structures.find((s) => s.structure === selected) ?? structures[0] ?? null;
+
+  useEffect(() => {
+    setSelected(null);
+    setPlayingClip(null);
+  }, [language]);
 
   if (structures.length === 0) {
     return (
@@ -146,7 +160,7 @@ export default function GrammarExplorer({ structures }: { structures: GrammarStr
                     </p>
                   </div>
                   <button
-                    onClick={() => speakJapanese(active.examples[0].example_sentence_jp)}
+                    onClick={() => speak(active.examples[0].example_sentence_jp, langConfig.ttsLang)}
                     className="shrink-0 p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 transition-colors"
                     title="Listen"
                   >
@@ -207,7 +221,7 @@ export default function GrammarExplorer({ structures }: { structures: GrammarStr
 
                       {/* TTS */}
                       <button
-                        onClick={() => speakJapanese(ex.japanese_text)}
+                        onClick={() => speak(ex.japanese_text, langConfig.ttsLang)}
                         className="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
                         title="Pronounce"
                       >

@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, run } from "@/lib/db";
+import { query, run, queryOne } from "@/lib/db";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
+import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ lessonId: string }> }
 ) {
   const { lessonId } = await params;
+
+  const lessonSong = await queryOne<{ language: string }>(
+    "SELECT s.language FROM lessons l JOIN songs s ON l.song_id = s.id WHERE l.id = ?",
+    [lessonId]
+  );
+  const language = isLanguageId(lessonSong?.language) ? lessonSong.language : DEFAULT_LANGUAGE;
 
   const lines = await query<{ japanese_text: string; english_text: string; id: string }>(
     "SELECT japanese_text, english_text, id FROM lyric_lines WHERE lesson_id = ? ORDER BY start_time ASC",
@@ -36,7 +43,7 @@ export async function POST(
   }
 
   try {
-    const questions = await generateQuizQuestions(lyricsContext, vocabList);
+    const questions = await generateQuizQuestions(lyricsContext, vocabList, language);
     await run(
       "INSERT INTO quizzes (lesson_id, questions) VALUES (?, ?) ON CONFLICT(lesson_id) DO UPDATE SET questions = excluded.questions, generated_at = datetime('now')",
       [lessonId, JSON.stringify(questions)]

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { speakJapanese, Highlight, ClipPlayer } from "@/components/shared/SentenceExamples";
+import { speak, Highlight, ClipPlayer } from "@/components/shared/SentenceExamples";
+
+function speakJapanese(text: string) {
+  speak(text, "ja-JP");
+}
 
 // ── Kana data ─────────────────────────────────────────────────────────────────
 

@@ -1,3 +1,5 @@
+import type { LanguageId } from "@/lib/languages";
+
 export type Song = {
   id: string;
   title: string;
@@ -8,6 +10,7 @@ export type Song = {
   created_at: string;
   difficulty: number | null;
   difficulty_reason: string | null;
+  language: LanguageId;
 };
 
 export type Lesson = {
@@ -44,6 +47,7 @@ export type LyricLine = {
   end_time: number;
   japanese_text: string;
   english_text: string;
+  natural_translation: string;
   trim: number;
   vocabulary: Vocabulary[];
   grammar_points?: GrammarPoint[];
@@ -51,19 +55,15 @@ export type LyricLine = {
 
 export type AILineResult = {
   line_analysis: {
-    japanese_line: string;
-    furigana_line: string;
     literal_translation: string;
     natural_translation: string;
   };
   vocabulary: Array<{
     word: string;
-    dictionary_form: string;
     furigana: string;
     english_meaning: string;
     part_of_speech: string;
-    jlpt_level: string;
-    grammar_notes: string; // kept for dictionary cache compat; empty in new analyses
+    grammar_notes: string; // populated from the dictionary cache, not the LLM
     example_sentence: string;
     example_sentence_english: string;
   }>;
@@ -83,6 +83,7 @@ export type ImportPayload = {
   artist: string;
   dayCount: number;
   translations?: string[]; // parallel to LRC lines, from YouTube EN captions
+  language: LanguageId;
 };
 
 // Lyrics Editor types
