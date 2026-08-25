@@ -142,11 +142,13 @@ export async function PUT(
     console.error("rebuildSentenceBank failed (non-fatal):", err);
   }
 
-  // 5. Invalidate cached study pages for this song
+  // 5. Invalidate cached study pages for this song, and grammar (line
+  // deletes cascade-remove their grammar_points)
   try {
     for (let day = 1; day <= song.total_days; day++) {
       revalidatePath(`/study/${songId}/${day}`);
     }
+    if (deletes.length > 0) revalidatePath("/grammar");
   } catch (err) {
     console.error("revalidatePath failed (non-fatal):", err);
   }

@@ -1,7 +1,9 @@
 import GrammarExplorer, { type GrammarStructure, type GrammarExample } from "@/components/grammar/GrammarExplorer";
 import { query } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Grammar data only changes on import/backfill/edit, which explicitly
+// revalidate this path — the 24h window is just a safety net.
+export const revalidate = 86400;
 
 type GrammarRow = {
   structure: string;

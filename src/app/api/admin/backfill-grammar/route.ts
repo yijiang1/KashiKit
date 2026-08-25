@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin";
 import { query, run, uuid } from "@/lib/db";
 import { analyzeLine } from "@/lib/ai/pipeline";
@@ -56,6 +57,14 @@ export async function POST(req: NextRequest) {
       // Skip failed lines, continue batch
     }
     await new Promise((r) => setTimeout(r, 200));
+  }
+
+  if (processed > 0) {
+    try {
+      revalidatePath("/grammar");
+    } catch (err) {
+      console.error("revalidatePath failed (non-fatal):", err);
+    }
   }
 
   return NextResponse.json({

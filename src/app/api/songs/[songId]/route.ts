@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { queryOne, run } from "@/lib/db";
 
 export async function PATCH(
@@ -26,6 +27,11 @@ export async function DELETE(
   await run("DELETE FROM songs WHERE id = ?", [songId]);
   if (song) {
     await run("DELETE FROM sentence_bank WHERE youtube_id = ?", [song.youtube_id]);
+  }
+  try {
+    revalidatePath("/grammar");
+  } catch (err) {
+    console.error("revalidatePath failed (non-fatal):", err);
   }
   return NextResponse.json({ success: true });
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { run, uuid, queryOne } from "@/lib/db";
 import { parseLRC, parseLRCLine, distributeLines } from "@/lib/lrc/parser";
 import { analyzeSong, assessDifficulty } from "@/lib/ai/pipeline";
@@ -172,6 +173,12 @@ export async function POST(req: NextRequest) {
     await run("UPDATE songs SET difficulty = ?, difficulty_reason = ? WHERE id = ?", [difficulty, reason, songId]);
   } catch {
     // Don't fail import if difficulty assessment fails
+  }
+
+  try {
+    revalidatePath("/grammar");
+  } catch (err) {
+    console.error("revalidatePath failed (non-fatal):", err);
   }
 
   return NextResponse.json({
