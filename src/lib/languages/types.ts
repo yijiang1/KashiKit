@@ -18,6 +18,8 @@ export type LanguageAiConfig = {
   quizPersona: string;
   /** e.g. "How do you read [kanji word]?" — phrasing for the reading-recall question type */
   quizReadingQuestion: string;
+  /** Persona + tone/pitch-accent guidance for the pronunciation-coach prompt (judges tone/accent correctness from a recorded clip, not singing melody) */
+  pronunciationRules: string;
 };
 
 export type LanguageConfig = {

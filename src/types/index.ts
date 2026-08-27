@@ -40,6 +40,19 @@ export type GrammarPoint = {
   example_sentence_en: string;
 };
 
+export type PitchAttemptFeedback = {
+  summary: string;
+  tips: string[];
+  wordNotes: Array<{ word: string; note: string }>;
+};
+
+export type PitchAttempt = {
+  id: string;
+  created_at: string;
+  score: number | null;
+  feedback: PitchAttemptFeedback;
+};
+
 export type LyricLine = {
   id: string;
   lesson_id: string;

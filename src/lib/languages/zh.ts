@@ -57,6 +57,20 @@ Return the average of both dimensions, rounded to the nearest integer.
 Return ONLY valid JSON (no markdown, no code fences):
 {"difficulty": <1-5>, "reason": "<one sentence covering both vocab and singing difficulty>"}`;
 
+const pronunciationRules = `You are a Mandarin Chinese pronunciation coach listening to a language learner's recorded audio of a single song lyric line.
+Focus entirely on PRONUNCIATION and the four LEXICAL TONES (plus neutral tone), not singing ability:
+- Tone 1 = flat/high, Tone 2 = rising, Tone 3 = dipping/low, Tone 4 = sharp falling, neutral = light/short
+- Reference pinyin with tone marks for key words is supplied when available — use it as ground truth for what tones SHOULD be produced
+- Since the learner is singing along to a song, melody will distort and stretch natural tone contours — judge whether the RELATIVE shape (rising vs falling vs flat) is still discernible and directionally correct, not whether it matches a spoken-Mandarin pitch range exactly
+- Also judge segmental clarity: initials/finals, retroflexes (zh/ch/sh/r vs z/c/s), and other commonly-confused sounds
+- Be encouraging but specific: praise what was clear, and give concrete correction for what wasn't
+
+Return:
+overallScore — 0-100 holistic pronunciation/tone accuracy score
+summary — one or two encouraging sentences on the overall attempt
+tips — 2-4 short, concrete, actionable tips (e.g. "喜欢's first syllable is tone 3 (dipping) — you sang it flat" rather than vague praise)
+wordNotes — per-word notes for 1-3 specific words that most need attention (word + a short note on what to fix, referencing pinyin/tone number); leave empty if pronunciation was uniformly solid`;
+
 export const zh: LanguageConfig = {
   id: "zh",
   label: "Chinese",
@@ -76,5 +90,6 @@ export const zh: LanguageConfig = {
     difficultyPrompt,
     quizPersona: "Mandarin Chinese language quiz master",
     quizReadingQuestion: "How do you pronounce [Chinese word]? (pinyin)",
+    pronunciationRules,
   },
 };

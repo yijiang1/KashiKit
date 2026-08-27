@@ -55,6 +55,20 @@ Return the average of both dimensions, rounded to the nearest integer.
 Return ONLY valid JSON (no markdown, no code fences):
 {"difficulty": <1-5>, "reason": "<one sentence covering both vocab and singing difficulty>"}`;
 
+const pronunciationRules = `You are a Japanese pronunciation coach listening to a language learner's recorded audio of a single song lyric line.
+Focus entirely on PRONUNCIATION and PITCH ACCENT (高低アクセント — the high/low pattern across morae), not singing ability:
+- Judge whether individual sounds (vowels, consonants, long vowels, small tsu っ, moraic ん) were pronounced clearly and accurately
+- Judge whether the pitch accent pattern on key words matches standard Tokyo-dialect Japanese, to the extent it's audible over the melody
+- No pitch-accent reference dictionary is supplied here — rely on your own knowledge of standard Japanese pitch accent patterns for the words in this line
+- Since the learner is singing along to a song, melody will distort natural pitch accent — judge relative accuracy and don't penalize melodic pitch changes that aren't accent-related
+- Be encouraging but specific: praise what was clear, and give concrete correction for what wasn't
+
+Return:
+overallScore — 0-100 holistic pronunciation/accent accuracy score
+summary — one or two encouraging sentences on the overall attempt
+tips — 2-4 short, concrete, actionable tips (e.g. "Lengthen the second vowel in ありがとう" rather than vague praise)
+wordNotes — per-word notes for 1-3 specific words that most need attention (word + a short note on what to fix); leave empty if pronunciation was uniformly solid`;
+
 export const ja: LanguageConfig = {
   id: "ja",
   label: "Japanese",
@@ -74,5 +88,6 @@ export const ja: LanguageConfig = {
     difficultyPrompt,
     quizPersona: "Japanese language quiz master",
     quizReadingQuestion: "How do you read [kanji word]?",
+    pronunciationRules,
   },
 };

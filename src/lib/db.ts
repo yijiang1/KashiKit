@@ -136,12 +136,21 @@ async function ensureInit(): Promise<void> {
         example_sentence_en TEXT NOT NULL DEFAULT ''
       );
 
+      CREATE TABLE IF NOT EXISTS pitch_attempts (
+        id            TEXT PRIMARY KEY,
+        lyric_line_id TEXT NOT NULL REFERENCES lyric_lines(id) ON DELETE CASCADE,
+        created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+        score         INTEGER,
+        feedback      TEXT NOT NULL DEFAULT '{}'
+      );
+
       CREATE INDEX IF NOT EXISTS idx_lessons_song ON lessons(song_id, day_number);
       CREATE INDEX IF NOT EXISTS idx_lyric_lines_lesson ON lyric_lines(lesson_id);
       CREATE INDEX IF NOT EXISTS idx_vocabulary_line ON vocabulary(lyric_line_id);
       CREATE INDEX IF NOT EXISTS idx_grammar_points_line ON grammar_points(lyric_line_id);
       CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(created_at);
       CREATE INDEX IF NOT EXISTS idx_jlpt_words_level ON jlpt_words(level);
+      CREATE INDEX IF NOT EXISTS idx_pitch_attempts_line ON pitch_attempts(lyric_line_id, created_at);
     `);
 
     // Migrations for columns added after initial schema

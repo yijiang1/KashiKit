@@ -5,6 +5,7 @@ import type { LyricLine, Vocabulary } from "@/types";
 import { posColor } from "./VocabCarousel";
 import SentenceExamples, { Highlight, speak } from "@/components/shared/SentenceExamples";
 import { getLanguageConfig, type LanguageId } from "@/lib/languages";
+import PronunciationCoach from "./PronunciationCoach";
 
 interface Props {
   line: LyricLine;
@@ -119,6 +120,9 @@ export default function LyricDisplay({ line, language = "ja" }: Props) {
           })}
         </div>
       )}
+
+      {/* Pronunciation / tone practice */}
+      <PronunciationCoach line={line} language={language} />
 
       {/* Selected word detail */}
       {selected && (
