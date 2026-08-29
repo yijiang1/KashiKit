@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/lib/auth";
 import { query, run, uuid } from "@/lib/db";
 import { analyzeLine } from "@/lib/ai/pipeline";
 import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
@@ -8,7 +8,8 @@ import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const denied = await requireAdmin();
+  if (denied) return denied;
 
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Number(body.limit) || 50, 200);

@@ -1,6 +1,13 @@
+import { redirect } from "next/navigation";
 import ImportForm from "@/components/importer/ImportForm";
+import { getSession, ENV_ADMIN } from "@/lib/auth";
 
-export default function ImportPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ImportPage() {
+  const session = await getSession();
+  if (!session && !ENV_ADMIN) redirect("/login?next=/import");
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>

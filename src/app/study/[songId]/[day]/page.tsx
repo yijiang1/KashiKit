@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { query, queryOne } from "@/lib/db";
 import StudyLayout from "@/components/study/StudyLayout";
-import { isAdmin } from "@/lib/admin";
+import { getSession, canManageSong } from "@/lib/auth";
 import type { Song, LyricLine, Vocabulary } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,9 @@ export default async function StudyPage({ params }: Props) {
 
   const song = await queryOne<Song>("SELECT * FROM songs WHERE id = ?", [songId]);
   if (!song) notFound();
+
+  const session = await getSession();
+  const canEdit = canManageSong(session, song);
 
   const lesson = await queryOne<{ id: string; song_id: string; day_number: number }>(
     "SELECT * FROM lessons WHERE song_id = ? AND day_number = ?",
@@ -58,7 +61,7 @@ export default async function StudyPage({ params }: Props) {
       lines={lines}
       day={day}
       lessonId={lesson.id}
-      isAdmin={isAdmin}
+      canEdit={canEdit}
       hasQuiz={!!quizRow}
     />
   );

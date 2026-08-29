@@ -21,7 +21,8 @@ KashiKit turns any Japanese or Mandarin Chinese song into a structured, multi-da
 - **Vocabulary quiz** — pre-generated fill-in-the-blank quiz at the end of each lesson
 - **Dictionary** — searchable cache of every word you've studied across all songs, with filters by JLPT level (N1–N5) or HSK level (1–6) and part of speech
 - **Reference chart** — a Kana Chart (hiragana/katakana) for Japanese, or a Pinyin Chart (initials/finals + tones) for Chinese
-- **Progress tracking** — lesson progress saved locally in the browser (no account needed)
+- **User accounts** — a free account (username + password) is needed to study courses and to build your own; the song catalog and dictionary stay browsable without one
+- **Progress tracking** — lesson progress saved locally in the browser, separate from your account
 - **Auto lyrics fetch** — automatically pulls LRC lyrics from [lrclib.net](https://lrclib.net) when available
 - **API usage tracker** — monitor your daily Gemini API call count against the free tier limit (1,500/day)
 
@@ -47,6 +48,7 @@ cd KashiKit
 npm install
 cp .env.local.example .env.local
 # Add your GOOGLE_AI_API_KEY to .env.local
+# Add an AUTH_SECRET too (any 16+ char random string): openssl rand -base64 32
 npm run dev
 ```
 
@@ -94,20 +96,29 @@ This writes a `<song>-anki-deck.zip` containing `notes.csv` and one `clip_XXXX.m
 
 Note: this downloads audio from YouTube for personal study use — be mindful of YouTube's Terms of Service, and don't expose this as a public-facing feature.
 
-## Admin Mode
+## Accounts & roles
 
-Set `ADMIN_MODE=true` in your environment to unlock admin-only features:
+`AUTH_SECRET` must be set for login to work (any random string of 16+ characters). Passwords
+are hashed with scrypt; the session is a signed, HTTP-only cookie (`kk_session`, 30 days).
 
-- **Lyrics Editor** (`/admin/lyrics-editor`) — visually adjust the start/end timestamp of each lyric line against the YouTube player
-- **Sentence bank** management — rebuild the cross-song example sentence index
-- **Song management** — import songs, regenerate quizzes, and set difficulty ratings
+- **Visitor (logged out)** — browse the song catalog and read the dictionary.
+- **User (logged in)** — study any course (lyrics, quizzes, grammar guide, pronunciation
+  practice), plus **+ Import song**, the **Lyrics Editor**, and quiz / difficulty / trim /
+  rename / delete — the editing tools each scoped to *songs they imported*.
+- **Admin** — a user with `is_admin = 1`. Can edit/delete any song and reach the global tools
+  (dictionary editing, sentence-bank rebuild, API-usage tracker, site-wide backfills). **The
+  first account to register becomes an admin.** Set `SIGNUPS_DISABLED=true` to close signups.
+- **`ADMIN_MODE=true`** — a local-dev bypass that treats every request as an admin, with or
+  without an account. Do not set it in a real deployment.
 
-Admin auth is env-var based — no login screen.
+Songs imported before this feature existed have no owner and are editable only by an admin
+(or with `ADMIN_MODE=true`).
 
 ## Usage Notes
 
-- Progress is stored in `localStorage` — no account or server-side session required for visitors
-- All user data is local; the only external call is sending lyrics to the Gemini API for analysis
+- Studying a course requires a free account; the song catalog and dictionary stay open to everyone
+- Lesson progress is stored in `localStorage`, never on the server, and is not tied to your account
+- The dictionary is public; the grammar guide is shared across all signed-in users; the sentence bank is admin-only
 - The free Gemini tier allows 1,500 requests/day, which is enough to import several songs per day
 
 ## License

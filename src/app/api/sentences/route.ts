@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { isLanguageId, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 export async function GET(req: NextRequest) {
+  // Returns verbatim sentence_bank lyric lines + translations. Gated: no
+  // copyrighted lyric text to unauthenticated callers.
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const word = req.nextUrl.searchParams.get("word") || "";
   const exclude = req.nextUrl.searchParams.get("exclude") || "";
   const langParam = req.nextUrl.searchParams.get("language");
@@ -37,6 +43,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const id = req.nextUrl.searchParams.get("id") || "";
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   await run("DELETE FROM sentence_bank WHERE id = ?", [id]);

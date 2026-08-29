@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
+import { requireUser } from "@/lib/auth";
 import { extractYouTubeId } from "@/lib/youtube/loader";
 import { logApiUsage } from "@/lib/ai/usage-tracker";
 import { geminiModel as model } from "@/lib/ai/client";
@@ -87,6 +88,9 @@ function msToLRCTimestamp(ms: number): string {
 }
 
 export async function GET(req: NextRequest) {
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const url = req.nextUrl.searchParams.get("url") || "";
   const videoId = extractYouTubeId(url);
   const langParam = req.nextUrl.searchParams.get("lang");

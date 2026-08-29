@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run, queryOne } from "@/lib/db";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/lib/auth";
 import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export const maxDuration = 300;
@@ -10,7 +10,8 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ songId: string }> }
 ) {
-  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const denied = await requireAdmin();
+  if (denied) return denied;
 
   const { songId } = await params;
 

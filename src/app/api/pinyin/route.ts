@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { firstSyllable } from "@/lib/pinyin";
 
 type WordRow = {
@@ -20,6 +21,12 @@ type SentenceRow = {
 };
 
 export async function GET(req: NextRequest) {
+  // Chinese-language mirror of /api/kana — returns verbatim sentence_bank lyric
+  // lines + translations. Gated: no copyrighted lyric text to unauthenticated
+  // callers.
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const syllable = req.nextUrl.searchParams.get("syllable");
   if (!syllable) return NextResponse.json({ words: [], sentences: [] });
 

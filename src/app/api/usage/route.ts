@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const all = await query<{ created_at: string; total_tokens: number }>(
     "SELECT created_at, prompt_tokens, completion_tokens, total_tokens, purpose FROM api_usage ORDER BY created_at DESC"
   );

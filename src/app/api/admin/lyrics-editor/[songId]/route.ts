@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { InValue } from "@libsql/client";
 import { revalidatePath } from "next/cache";
-import { query, queryOne, getDb, run, uuid } from "@/lib/db";
-import { isAdmin } from "@/lib/admin";
-import type { Song, Lesson, EditorSavePayload } from "@/types";
+import { query, getDb, run, uuid } from "@/lib/db";
+import { requireSongWrite } from "@/lib/auth";
+import type { Lesson, EditorSavePayload } from "@/types";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ songId: string }> }
 ) {
-  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { songId } = await params;
-
-  const song = await queryOne<Song>("SELECT * FROM songs WHERE id = ?", [songId]);
-  if (!song) return NextResponse.json({ error: "Song not found" }, { status: 404 });
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
+  const { song } = gate;
 
   const lessons = await query<Lesson>(
     "SELECT * FROM lessons WHERE song_id = ? ORDER BY day_number ASC",
@@ -71,14 +69,13 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ songId: string }> }
 ) {
-  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { songId } = await params;
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
+  const { song } = gate;
+
   const body: EditorSavePayload = await req.json();
   const { updates, deletes, additions, vocabMoves } = body;
-
-  const song = await queryOne<Song>("SELECT * FROM songs WHERE id = ?", [songId]);
-  if (!song) return NextResponse.json({ error: "Song not found" }, { status: 404 });
 
   const db = await getDb();
 

@@ -144,6 +144,15 @@ async function ensureInit(): Promise<void> {
         feedback      TEXT NOT NULL DEFAULT '{}'
       );
 
+      CREATE TABLE IF NOT EXISTS users (
+        id            TEXT PRIMARY KEY,
+        username      TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        is_admin      INTEGER NOT NULL DEFAULT 0,
+        created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lc ON users(lower(username));
       CREATE INDEX IF NOT EXISTS idx_lessons_song ON lessons(song_id, day_number);
       CREATE INDEX IF NOT EXISTS idx_lyric_lines_lesson ON lyric_lines(lesson_id);
       CREATE INDEX IF NOT EXISTS idx_vocabulary_line ON vocabulary(lyric_line_id);
@@ -182,6 +191,12 @@ async function ensureInit(): Promise<void> {
     if (!songColNames.includes("language")) {
       await db.execute("ALTER TABLE songs ADD COLUMN language TEXT NOT NULL DEFAULT 'ja'");
     }
+    // Song ownership: pre-existing songs get NULL (legacy) — editable only by an
+    // ADMIN_MODE session. New imports set this to the creating user's id.
+    if (!songColNames.includes("user_id")) {
+      await db.execute("ALTER TABLE songs ADD COLUMN user_id TEXT DEFAULT NULL");
+    }
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_songs_user ON songs(user_id)");
 
     const vocabCols = await db.execute("PRAGMA table_info(vocabulary)");
     const vocabColNames = vocabCols.rows.map((r) => r.name as string);

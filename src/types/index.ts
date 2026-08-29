@@ -11,6 +11,9 @@ export type Song = {
   difficulty: number | null;
   difficulty_reason: string | null;
   language: LanguageId;
+  user_id: string | null;
+  /** Populated only where the songs query LEFT JOINs users. */
+  owner_username?: string | null;
 };
 
 export type Lesson = {

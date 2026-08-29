@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  // Full-text search over verbatim sentence_bank lyric lines + translations.
+  // Backs the admin-only /sentence-bank page — gate the API to match.
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const search = req.nextUrl.searchParams.get("q") || "";
   const song = req.nextUrl.searchParams.get("song") || "";
 

@@ -5,6 +5,7 @@ import { geminiModel as model } from "@/lib/ai/client";
 import { withRateLimitRetry } from "@/lib/ai/pipeline";
 import { logApiUsage } from "@/lib/ai/usage-tracker";
 import { getLanguageConfig, isLanguageId } from "@/lib/languages";
+import { requireUser } from "@/lib/auth";
 import type { PitchAttempt, PitchAttemptFeedback } from "@/types";
 
 export const maxDuration = 60;
@@ -68,6 +69,11 @@ function toAttempt(row: AttemptRow): PitchAttempt {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lineId: string }> }) {
+  // Keyed by lyric line; reads lyric_lines and returns AI feedback that can
+  // quote the line. Gated with the rest of the lyric-bearing read endpoints.
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const { lineId } = await params;
   const rows = await query<AttemptRow>(
     "SELECT id, created_at, score, feedback FROM pitch_attempts WHERE lyric_line_id = ? ORDER BY created_at DESC LIMIT 20",
@@ -77,6 +83,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lin
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lineId: string }> }) {
+  // Reads the lyric line into the AI prompt and writes a pitch_attempts row +
+  // spends a Gemini call — require a session.
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const { lineId } = await params;
   const { audioBase64 } = await req.json();
 

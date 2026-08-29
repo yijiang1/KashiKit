@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run, queryOne } from "@/lib/db";
+import { requireSongWrite } from "@/lib/auth";
 import { assessDifficulty } from "@/lib/ai/pipeline";
 import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
@@ -8,6 +9,8 @@ export async function POST(
   { params }: { params: Promise<{ songId: string }> }
 ) {
   const { songId } = await params;
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
 
   const song = await queryOne<{ language: string }>("SELECT language FROM songs WHERE id = ?", [songId]);
   const language = isLanguageId(song?.language) ? song.language : DEFAULT_LANGUAGE;

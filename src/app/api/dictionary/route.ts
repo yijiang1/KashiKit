@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 import { isLanguageId, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 export async function GET(req: NextRequest) {
@@ -46,6 +47,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const body = await req.json();
   const { word, furigana, english_meaning, part_of_speech, grammar_notes } = body;
   const language = isLanguageId(body.language) ? body.language : DEFAULT_LANGUAGE;
@@ -59,6 +63,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const word = req.nextUrl.searchParams.get("word") || "";
   const langParam = req.nextUrl.searchParams.get("language");
   const language = isLanguageId(langParam) ? langParam : DEFAULT_LANGUAGE;

@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@libsql/client": "^0.17.2",
+    "jose": "^6.2.10",
     "next": "^16.2.1",
     "pitchy": "^4.1.0",
     "react": "^19.0.0",

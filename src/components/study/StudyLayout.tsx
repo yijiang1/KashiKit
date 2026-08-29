@@ -15,11 +15,11 @@ interface Props {
   lines: LyricLine[];
   day: number;
   lessonId: string;
-  isAdmin: boolean;
+  canEdit: boolean;
   hasQuiz: boolean;
 }
 
-export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQuiz: initialHasQuiz }: Props) {
+export default function StudyLayout({ song, lines, day, lessonId, canEdit, hasQuiz: initialHasQuiz }: Props) {
   const [lineIndex, setLineIndex] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
   const [trim, setTrim] = useState(lines[0]?.trim ?? 0);
@@ -160,7 +160,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
           <span className={`text-sm font-mono w-12 text-right ${trim === 0 ? "text-gray-300" : "text-indigo-600"}`}>
             {trim > 0 ? `−${trim.toFixed(1)}s` : "0s"}
           </span>
-          {isAdmin && trim !== currentLine.trim && (
+          {canEdit && trim !== currentLine.trim && (
             <button
               type="button"
               onClick={async () => {
@@ -176,7 +176,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
               save
             </button>
           )}
-          {isAdmin && trim > 0 && trim === currentLine.trim && (
+          {canEdit && trim > 0 && trim === currentLine.trim && (
             <button
               type="button"
               onClick={async () => {
@@ -220,7 +220,7 @@ export default function StudyLayout({ song, lines, day, lessonId, isAdmin, hasQu
 
       {/* Complete Day / Quiz buttons */}
       <div className="border-t pt-4 space-y-3">
-        {isAdmin && !hasQuiz && (
+        {canEdit && !hasQuiz && (
           <button
             onClick={handleGenerateQuiz}
             disabled={generatingQuiz}

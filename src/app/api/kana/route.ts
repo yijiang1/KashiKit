@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 
 type WordRow = {
   word: string;
@@ -19,6 +20,11 @@ type SentenceRow = {
 };
 
 export async function GET(req: NextRequest) {
+  // Returns verbatim lyric lines + translations from lyric_lines / sentence_bank.
+  // Gated: no copyrighted lyric text to unauthenticated callers.
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const kana = req.nextUrl.searchParams.get("kana");
   if (!kana) return NextResponse.json({ words: [], sentences: [] });
 

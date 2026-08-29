@@ -1,7 +1,11 @@
 import DictionaryTable from "@/components/dictionary/DictionaryTable";
-import { isAdmin } from "@/lib/admin";
+import { getSession, isSiteAdmin } from "@/lib/auth";
 
-export default function DictionaryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DictionaryPage() {
+  const isAdmin = isSiteAdmin(await getSession());
+
   return (
     <div className="space-y-6">
       <div>

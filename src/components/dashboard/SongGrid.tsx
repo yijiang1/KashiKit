@@ -11,11 +11,14 @@ type SortMode = "newest" | "oldest" | "easiest" | "hardest";
 interface Props {
   songs: Song[];
   lessonsBySong: Record<string, string[]>;
+  /** Viewer can reach global tools (DB admin or ADMIN_MODE). */
   isAdmin: boolean;
+  /** Logged-in viewer's user id, or null. Used for per-song ownership. */
+  viewerId?: string | null;
   dbAvailable?: boolean;
 }
 
-export default function SongGrid({ songs: allSongs, lessonsBySong, isAdmin, dbAvailable = true }: Props) {
+export default function SongGrid({ songs: allSongs, lessonsBySong, isAdmin, viewerId = null, dbAvailable = true }: Props) {
   const { language } = useLanguage();
   const songs = useMemo(() => allSongs.filter((s) => s.language === language), [allSongs, language]);
   const [completedDaysBySong, setCompletedDaysBySong] = useState<Record<string, number>>({});
@@ -191,7 +194,7 @@ export default function SongGrid({ songs: allSongs, lessonsBySong, isAdmin, dbAv
             completedDays={completedDaysBySong[song.id] ?? 0}
             lessonIds={lessonsBySong[song.id] ?? []}
             onReset={() => setCompletedDaysBySong((prev) => ({ ...prev, [song.id]: 0 }))}
-            isAdmin={isAdmin}
+            canManage={isAdmin || (!!viewerId && song.user_id === viewerId)}
           />
         ))}
       </div>

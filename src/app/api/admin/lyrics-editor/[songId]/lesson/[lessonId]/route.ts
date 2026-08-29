@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
-import { isAdmin } from "@/lib/admin";
+import { requireSongWrite } from "@/lib/auth";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ songId: string; lessonId: string }> }
 ) {
-  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { songId, lessonId } = await params;
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
 
   // Safety: refuse if lesson still has lines
   const lines = await query("SELECT id FROM lyric_lines WHERE lesson_id = ? LIMIT 1", [lessonId]);

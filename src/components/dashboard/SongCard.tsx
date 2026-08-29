@@ -13,10 +13,11 @@ interface Props {
   completedDays: number;
   lessonIds: string[];
   onReset: () => void;
-  isAdmin: boolean;
+  /** Viewer owns this song (or is a site admin) — show edit/delete controls. */
+  canManage: boolean;
 }
 
-export default function SongCard({ song, completedDays, lessonIds, onReset, isAdmin }: Props) {
+export default function SongCard({ song, completedDays, lessonIds, onReset, canManage }: Props) {
   const router = useRouter();
   const thumbnailUrl = `https://img.youtube.com/vi/${song.youtube_id}/mqdefault.jpg`;
   const nextDay = Math.min(completedDays + 1, song.total_days);
@@ -57,10 +58,13 @@ export default function SongCard({ song, completedDays, lessonIds, onReset, isAd
           <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
           <p className="text-xs text-gray-400 italic truncate">{song.title_en || "\u00A0"}</p>
           <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{song.artist}</p>
-          <div className="mt-1" onClick={isAdmin ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}>
+          {song.owner_username && (
+            <p className="text-[11px] text-gray-400 truncate">added by {song.owner_username}</p>
+          )}
+          <div className="mt-1" onClick={canManage ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}>
             <StarRating
               value={difficulty}
-              onChange={isAdmin ? handleDifficultyChange : undefined}
+              onChange={canManage ? handleDifficultyChange : undefined}
               size="sm"
             />
           </div>
@@ -106,7 +110,7 @@ export default function SongCard({ song, completedDays, lessonIds, onReset, isAd
         </svg>
       </a>
 
-      {isAdmin && (
+      {canManage && (
         <button
           onClick={handleDelete}
           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"

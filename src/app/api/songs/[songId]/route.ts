@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { queryOne, run } from "@/lib/db";
+import { run } from "@/lib/db";
+import { requireSongWrite } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ songId: string }> }
 ) {
   const { songId } = await params;
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
+
   const body = await req.json();
   const fields: string[] = [];
   const values: (string | null)[] = [];
@@ -23,11 +27,12 @@ export async function DELETE(
   { params }: { params: Promise<{ songId: string }> }
 ) {
   const { songId } = await params;
-  const song = await queryOne<{ youtube_id: string }>("SELECT youtube_id FROM songs WHERE id = ?", [songId]);
+  const gate = await requireSongWrite(songId);
+  if (gate instanceof NextResponse) return gate;
+  const { song } = gate;
+
   await run("DELETE FROM songs WHERE id = ?", [songId]);
-  if (song) {
-    await run("DELETE FROM sentence_bank WHERE youtube_id = ?", [song.youtube_id]);
-  }
+  await run("DELETE FROM sentence_bank WHERE youtube_id = ?", [song.youtube_id]);
   try {
     revalidatePath("/grammar");
   } catch (err) {

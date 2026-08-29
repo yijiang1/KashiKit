@@ -1,16 +1,28 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/language-context";
 import { LANGUAGE_LIST, getLanguageConfig } from "@/lib/languages";
 import NavStats from "./NavStats";
 
 interface Props {
+  user: { username: string; admin: boolean } | null;
+  /** True when the viewer can reach global tools (DB admin or ADMIN_MODE). */
   isAdmin: boolean;
 }
 
-export default function HeaderNav({ isAdmin }: Props) {
+export default function HeaderNav({ user, isAdmin }: Props) {
+  const router = useRouter();
   const { language, setLanguage } = useLanguage();
   const langConfig = getLanguageConfig(language);
+
+  const canCreate = !!user || isAdmin;
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/");
+    router.refresh();
+  }
 
   return (
     <nav className="flex gap-4 text-sm items-center shrink-0 ml-4">
@@ -44,20 +56,43 @@ export default function HeaderNav({ isAdmin }: Props) {
         Grammar
       </a>
       {isAdmin && (
-        <>
-          <a href="/sentence-bank" className="text-gray-600 hover:text-gray-900 transition-colors">
-            Sentence Bank
-          </a>
-          <a href="/admin/lyrics-editor" className="text-gray-600 hover:text-gray-900 transition-colors">
-            Lyrics Editor
-          </a>
-          <a
-            href="/import"
-            className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors"
+        <a href="/sentence-bank" className="text-gray-600 hover:text-gray-900 transition-colors">
+          Sentence Bank
+        </a>
+      )}
+      {canCreate && (
+        <a href="/admin/lyrics-editor" className="text-gray-600 hover:text-gray-900 transition-colors">
+          Lyrics Editor
+        </a>
+      )}
+      {canCreate && (
+        <a
+          href="/import"
+          className="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          + Import song
+        </a>
+      )}
+      {user ? (
+        <span className="flex items-center gap-2 pl-1">
+          <span className="text-gray-400" title={user.admin ? "Admin" : undefined}>
+            {user.username}
+            {user.admin && " ★"}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="text-gray-500 hover:text-gray-900 transition-colors"
           >
-            + Import song
-          </a>
-        </>
+            Log out
+          </button>
+        </span>
+      ) : (
+        <a
+          href="/login"
+          className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+        >
+          Log in
+        </a>
       )}
     </nav>
   );

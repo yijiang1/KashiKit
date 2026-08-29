@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { run, uuid, queryOne } from "@/lib/db";
+import { getSession, canManageSong, ENV_ADMIN } from "@/lib/auth";
 import { parseLRC, parseLRCLine, distributeLines } from "@/lib/lrc/parser";
 import { analyzeSong, assessDifficulty } from "@/lib/ai/pipeline";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
@@ -12,6 +13,11 @@ import type { ImportPayload } from "@/types";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session && !ENV_ADMIN) {
+    return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  }
+
   const body: ImportPayload = await req.json();
   const { youtubeUrl, lrcContent, title, title_en, artist, dayCount, translations } = body;
   const language = isLanguageId(body.language) ? body.language : DEFAULT_LANGUAGE;
@@ -19,6 +25,19 @@ export async function POST(req: NextRequest) {
   const youtubeId = extractYouTubeId(youtubeUrl);
   if (!youtubeId) {
     return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
+  }
+
+  // One song per video (youtube_id is UNIQUE). A re-import may only replace a
+  // song you already own (or an unowned legacy one, or if you're an admin).
+  const existing = await queryOne<{ id: string; user_id: string | null }>(
+    "SELECT id, user_id FROM songs WHERE youtube_id = ?",
+    [youtubeId]
+  );
+  if (existing && !canManageSong(session, existing)) {
+    return NextResponse.json(
+      { error: "This video has already been imported by another user." },
+      { status: 409 }
+    );
   }
 
   const parsedLines = parseLRC(lrcContent);
@@ -54,8 +73,8 @@ export async function POST(req: NextRequest) {
   await run("DELETE FROM songs WHERE youtube_id = ?", [youtubeId]);
 
   const songId = uuid();
-  await run("INSERT INTO songs (id, title, title_en, artist, youtube_id, total_days, language) VALUES (?, ?, ?, ?, ?, ?, ?)", [
-    songId, title, title_en ?? null, artist ?? "", youtubeId, chunks.length, language,
+  await run("INSERT INTO songs (id, title, title_en, artist, youtube_id, total_days, language, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
+    songId, title, title_en ?? null, artist ?? "", youtubeId, chunks.length, language, session?.uid ?? null,
   ]);
 
   // Accumulate all lyrics and vocab across days for difficulty assessment

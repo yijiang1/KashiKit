@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run, queryOne } from "@/lib/db";
+import { requireSongWriteByLesson } from "@/lib/auth";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
 import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
@@ -8,6 +9,8 @@ export async function POST(
   { params }: { params: Promise<{ lessonId: string }> }
 ) {
   const { lessonId } = await params;
+  const gate = await requireSongWriteByLesson(lessonId);
+  if (gate instanceof NextResponse) return gate;
 
   const lessonSong = await queryOne<{ language: string }>(
     "SELECT s.language FROM lessons l JOIN songs s ON l.song_id = s.id WHERE l.id = ?",

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
 import { generateQuizQuestions } from "@/lib/ai/quiz";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/lib/auth";
 import { DEFAULT_LANGUAGE, isLanguageId } from "@/lib/languages";
 
 export const maxDuration = 300;
 
 export async function POST() {
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = await requireAdmin();
+  if (denied) return denied;
 
   const lessons = await query<{ id: string; language: string }>(
     `SELECT l.id, s.language

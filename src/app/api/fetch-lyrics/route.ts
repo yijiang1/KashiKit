@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 
 // Hiragana/katakana + Han ideographs \u2014 covers both Japanese (kana+kanji) and
 // Chinese (hanzi) lyrics, since lrclib.net search isn't language-scoped.
@@ -48,6 +49,9 @@ function pickBest(results: LrcResult[], preferTitle?: string): LrcResult | undef
 }
 
 export async function GET(req: NextRequest) {
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const { searchParams } = req.nextUrl;
   const title = searchParams.get("title") || "";
   const artist = searchParams.get("artist") || "";

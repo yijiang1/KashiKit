@@ -3,7 +3,7 @@ import "./globals.css";
 import LogoText from "@/components/dashboard/LogoText";
 import HeaderNav from "@/components/dashboard/HeaderNav";
 import { LanguageProvider } from "@/lib/language-context";
-import { isAdmin } from "@/lib/admin";
+import { getSession, isSiteAdmin } from "@/lib/auth";
 import { isDbAvailable } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const dbAvailable = await isDbAvailable();
+  const session = await getSession();
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
@@ -28,7 +29,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <img src="/logo-icon.png" alt="KashiKit" className="h-11 w-auto shrink-0 animate-fade-up" style={{ animationDelay: '0ms' }} />
                 <LogoText />
               </a>
-              <HeaderNav isAdmin={isAdmin} />
+              <HeaderNav
+                user={session ? { username: session.username, admin: session.admin } : null}
+                isAdmin={isSiteAdmin(session)}
+              />
             </div>
           </header>
           <main className="max-w-screen-2xl mx-auto px-8 py-8">{children}</main>
