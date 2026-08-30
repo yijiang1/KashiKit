@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 
 function calcStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
@@ -26,6 +27,9 @@ function calcStreak(dates: string[]): number {
 }
 
 export async function GET() {
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const completions = await query<{ completed_at: string; lesson_id: string }>(
     "SELECT completed_at, lesson_id FROM lesson_completions"
   );

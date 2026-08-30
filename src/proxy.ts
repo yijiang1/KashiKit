@@ -20,34 +20,12 @@ const ADMIN_API: Rule[] = [
 ];
 const ADMIN_PAGES = ["/sentence-bank"];
 
-// Per-song creation / editing tools — need any signed-in user. The route
-// handler then enforces per-song ownership (owner or admin).
-const AUTH_API: Rule[] = [
-  { method: "POST", pattern: /^\/api\/import/ },
-  { method: "PUT", pattern: /^\/api\/difficulty\// },
-  { method: "POST", pattern: /^\/api\/difficulty\/assess\// },
-  { method: "PUT", pattern: /^\/api\/trim\// },
-  { method: "POST", pattern: /^\/api\/quiz\/generate\// },
-  { method: "DELETE", pattern: /^\/api\/songs\// },
-  { method: "PATCH", pattern: /^\/api\/songs\// },
-  { method: "GET", pattern: /^\/api\/fetch-lyrics/ },
-  { method: "GET", pattern: /^\/api\/fetch-transcript/ },
-  { pattern: /^\/api\/admin\/lyrics-editor\// },
-  // Read endpoints that return verbatim lyric lines / translations or
-  // lyric-derived quiz text. Gated so no copyrighted lyric content reaches
-  // unauthenticated callers (also enforced in each route handler).
-  { method: "GET", pattern: /^\/api\/kana$/ },
-  { method: "GET", pattern: /^\/api\/pinyin$/ },
-  { method: "GET", pattern: /^\/api\/sentences$/ },
-  { method: "GET", pattern: /^\/api\/study\// },
-  { method: "GET", pattern: /^\/api\/quiz$/ },
-  { pattern: /^\/api\/pronunciation\// },
+// The site is otherwise closed: every page and API route needs a session. Only
+// the sign-in flow itself is reachable while logged out.
+const PUBLIC_PAGES = new Set(["/login", "/register"]);
+const PUBLIC_API: Rule[] = [
+  { pattern: /^\/api\/auth\/(login|register|logout|me)$/ },
 ];
-// Pages that server-render verbatim lyric lines + translations. Gated so no
-// copyrighted lyric content is served to unauthenticated visitors. (Interim
-// containment — revisit when the excerpt redesign gives these a public,
-// short-excerpt-only view.)
-const AUTH_PAGES = ["/import", "/admin/lyrics-editor", "/study", "/grammar", "/account"];
 
 function matches(rules: Rule[], method: string, pathname: string): boolean {
   return rules.some((r) => (!r.method || r.method === method) && r.pattern.test(pathname));
@@ -68,11 +46,9 @@ export async function proxy(req: NextRequest) {
       : NextResponse.redirect(new URL("/", req.url));
   }
 
-  // --- auth tier: signed-in users only ---
-  const needsAuth =
-    matches(AUTH_API, method, pathname) ||
-    AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (!session && needsAuth) {
+  // --- auth wall: everything except the sign-in flow needs a session ---
+  const isPublic = PUBLIC_PAGES.has(pathname) || matches(PUBLIC_API, method, pathname);
+  if (!session && !ENV_ADMIN && !isPublic) {
     if (isApi) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname);
@@ -83,13 +59,9 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
+  // Everything except Next internals and static asset files (the two files in
+  // /public are .png, covered by the extension list).
   matcher: [
-    "/import",
-    "/account",
-    "/sentence-bank",
-    "/admin/:path*",
-    "/api/:path*",
-    "/study/:path*",
-    "/grammar",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|otf|map)$).*)",
   ],
 };

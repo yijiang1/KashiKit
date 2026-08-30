@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, run } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { isLanguageId, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 export async function GET(req: NextRequest) {
+  // Rows include AI example sentences that can be lyric-derived — require a
+  // session (the dictionary itself stays a shared cross-song reference).
+  const gate = await requireUser();
+  if (gate instanceof NextResponse) return gate;
+
   const search = req.nextUrl.searchParams.get("q") || "";
   const levelParam = req.nextUrl.searchParams.get("level") || "";
   const langParam = req.nextUrl.searchParams.get("language");

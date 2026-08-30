@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireSongViewByLesson } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  // quiz `questions` JSON embeds verbatim lyric fragments ("Complete the
-  // lyric: …"). Gated: nothing lyric-derived to unauthenticated callers.
-  const gate = await requireUser();
-  if (gate instanceof NextResponse) return gate;
-
   const lessonId = req.nextUrl.searchParams.get("lessonId");
   if (!lessonId) {
     return NextResponse.json({ error: "Missing lessonId" }, { status: 400 });
   }
+
+  // quiz `questions` JSON embeds verbatim lyric fragments ("Complete the
+  // lyric: …"). Gated: signed-in, and (for non-admins) the owner of the song
+  // this lesson belongs to.
+  const gate = await requireSongViewByLesson(lessonId);
+  if (gate instanceof NextResponse) return gate;
 
   const row = await queryOne<{ questions: string }>(
     "SELECT questions FROM quizzes WHERE lesson_id = ?",

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { query, queryOne } from "@/lib/db";
 import StudyLayout from "@/components/study/StudyLayout";
-import { getSession, canManageSong } from "@/lib/auth";
+import { getSession, canManageSong, canViewSong } from "@/lib/auth";
 import type { Song, LyricLine, Vocabulary } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +20,8 @@ export default async function StudyPage({ params }: Props) {
   if (!song) notFound();
 
   const session = await getSession();
+  // Non-admins can only study songs they imported; someone else's song 404s.
+  if (!canViewSong(session, song)) notFound();
   const canEdit = canManageSong(session, song);
 
   const lesson = await queryOne<{ id: string; song_id: string; day_number: number }>(

@@ -113,6 +113,18 @@ export function canManageSong(
   return song.user_id != null && song.user_id === session.uid;
 }
 
+/**
+ * Can this viewer open/study this song? Currently identical to `canManageSong`
+ * (owner or site admin — which also hides legacy `user_id IS NULL` songs from
+ * non-admins). Split out so view vs. write rules can diverge later.
+ */
+export function canViewSong(
+  session: SessionUser | null | undefined,
+  song: { user_id: string | null }
+): boolean {
+  return canManageSong(session, song);
+}
+
 // ---------------------------------------------------------------------------
 // Route guards — return a NextResponse to short-circuit, or the value on success
 // ---------------------------------------------------------------------------
@@ -152,6 +164,34 @@ export async function requireSongWriteByLesson(lessonId: string) {
   );
   if (!row) return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
   return requireSongWrite(row.song_id);
+}
+
+/**
+ * Read gate for a single song — signed-in, and (for non-admins) the owner.
+ * Returns 404 rather than 403 for someone else's song so we don't confirm it
+ * exists: to a non-admin, other people's songs simply aren't there.
+ */
+export async function requireSongView(
+  songId: string
+): Promise<{ user: SessionUser | null; song: OwnedSong } | NextResponse> {
+  const session = await getSession();
+  if (!session && !ENV_ADMIN) {
+    return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  }
+  const song = await queryOne<OwnedSong>("SELECT * FROM songs WHERE id = ?", [songId]);
+  if (!song || !canViewSong(session, song)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return { user: session, song };
+}
+
+export async function requireSongViewByLesson(lessonId: string) {
+  const row = await queryOne<{ song_id: string }>(
+    "SELECT song_id FROM lessons WHERE id = ?",
+    [lessonId]
+  );
+  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return requireSongView(row.song_id);
 }
 
 export async function requireSongWriteByLine(lineId: string) {

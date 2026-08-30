@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireSongViewByLesson } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ lessonId: string }> }
 ) {
-  // Returns full lyric_lines rows (japanese_text, english_text,
-  // natural_translation) + vocab. Gated: no copyrighted lyric text to
-  // unauthenticated callers.
-  const gate = await requireUser();
-  if (gate instanceof NextResponse) return gate;
-
   const { lessonId } = await params;
+
+  // Returns full lyric_lines rows (japanese_text, english_text,
+  // natural_translation) + vocab. Gated: signed-in, and (for non-admins) the
+  // owner of the song this lesson belongs to.
+  const gate = await requireSongViewByLesson(lessonId);
+  if (gate instanceof NextResponse) return gate;
 
   const lines = await query<Record<string, unknown>>(
     "SELECT * FROM lyric_lines WHERE lesson_id = ? ORDER BY start_time ASC",
