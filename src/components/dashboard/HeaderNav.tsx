@@ -75,10 +75,14 @@ export default function HeaderNav({ user, isAdmin }: Props) {
       )}
       {user ? (
         <span className="flex items-center gap-2 pl-1">
-          <span className="text-gray-400" title={user.admin ? "Admin" : undefined}>
+          <a
+            href="/account"
+            className="text-gray-500 hover:text-gray-900 transition-colors"
+            title={user.admin ? "Admin — account settings" : "Account settings"}
+          >
             {user.username}
             {user.admin && " ★"}
-          </span>
+          </a>
           <button
             onClick={handleLogout}
             className="text-gray-500 hover:text-gray-900 transition-colors"

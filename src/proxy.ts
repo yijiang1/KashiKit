@@ -47,7 +47,7 @@ const AUTH_API: Rule[] = [
 // copyrighted lyric content is served to unauthenticated visitors. (Interim
 // containment — revisit when the excerpt redesign gives these a public,
 // short-excerpt-only view.)
-const AUTH_PAGES = ["/import", "/admin/lyrics-editor", "/study", "/grammar"];
+const AUTH_PAGES = ["/import", "/admin/lyrics-editor", "/study", "/grammar", "/account"];
 
 function matches(rules: Rule[], method: string, pathname: string): boolean {
   return rules.some((r) => (!r.method || r.method === method) && r.pattern.test(pathname));
@@ -85,6 +85,7 @@ export async function proxy(req: NextRequest) {
 export const config = {
   matcher: [
     "/import",
+    "/account",
     "/sentence-bank",
     "/admin/:path*",
     "/api/:path*",

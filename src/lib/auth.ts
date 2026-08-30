@@ -40,6 +40,34 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Credential validation — shared by register, change-username, change-password
+// ---------------------------------------------------------------------------
+
+export const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 200;
+
+/** Returns an error message, or null when the username is well-formed. */
+export function validateUsername(username: unknown): string | null {
+  if (typeof username !== "string" || !USERNAME_RE.test(username)) {
+    return "Username must be 3–20 characters: letters, numbers, or underscore.";
+  }
+  return null;
+}
+
+/** Returns an error message, or null when the password meets the length rules. */
+export function validatePassword(password: unknown): string | null {
+  if (
+    typeof password !== "string" ||
+    password.length < PASSWORD_MIN ||
+    password.length > PASSWORD_MAX
+  ) {
+    return `Password must be at least ${PASSWORD_MIN} characters.`;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Session cookie
 // ---------------------------------------------------------------------------
 

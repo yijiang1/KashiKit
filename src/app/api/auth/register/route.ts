@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, run, uuid } from "@/lib/db";
-import { authConfigured, hashPassword, setSessionCookie } from "@/lib/auth";
-
-const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
+import {
+  authConfigured,
+  hashPassword,
+  setSessionCookie,
+  validatePassword,
+  validateUsername,
+} from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   if (!authConfigured()) {
@@ -17,17 +21,13 @@ export async function POST(req: NextRequest) {
 
   const { username, password } = await req.json().catch(() => ({}));
 
-  if (typeof username !== "string" || !USERNAME_RE.test(username)) {
-    return NextResponse.json(
-      { error: "Username must be 3–20 characters: letters, numbers, or underscore." },
-      { status: 400 }
-    );
+  const usernameError = validateUsername(username);
+  if (usernameError) {
+    return NextResponse.json({ error: usernameError }, { status: 400 });
   }
-  if (typeof password !== "string" || password.length < 8 || password.length > 200) {
-    return NextResponse.json(
-      { error: "Password must be at least 8 characters." },
-      { status: 400 }
-    );
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
   const existing = await queryOne<{ id: string }>(
