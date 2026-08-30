@@ -93,7 +93,7 @@ export default function LogoText() {
       </span>
       {wide && (
         <span className="text-lg text-gray-400 tracking-tight font-light">
-          {"Learn Japanese through music".split("").map((ch, i) =>
+          {"Learn Japanese & Chinese through music".split("").map((ch, i) =>
             ch === " " ? (
               <span key={i}> </span>
             ) : (
